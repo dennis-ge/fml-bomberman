@@ -1,0 +1,6 @@
+pygame
+tqdm
+numpy
+pandas
+scikit-learn
+scipy
