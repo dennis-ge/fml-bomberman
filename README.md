@@ -1,6 +1,5 @@
 # Fundamentals of Machine Learning Bomberman project
 
-
 ## Setup
 
 1. Create virutal env (e.g. conda or virtualenv)
