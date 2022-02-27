@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 ### PyCharm ###
 
 # User-specific stuff
@@ -84,8 +83,6 @@ fabric.properties
 .idea/codestream.xml
 
 # Macos
-=======
->>>>>>> 883eedb39cf1 (update README.md, add more agents)
 .DS_Store
 # Byte-compiled / optimized / DLL files
 __pycache__/
