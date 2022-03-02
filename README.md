@@ -1,4 +1,4 @@
-# Fundamentals of Machine Learning Bomberman project
+# Fundamentals of Machine Learning: Bomberman project
 
 ## Setup
 
