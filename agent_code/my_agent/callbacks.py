@@ -1,12 +1,17 @@
 import os
 import pickle
-import random
 
-import agent_code.my_agent.q_learning as q_learning
-from agent_code.my_agent.feature_extraction import state_to_features
+import numpy as np
+
 from agent_code.my_agent.agent_settings import *
+from agent_code.my_agent.features import state_to_features
+from agent_code.my_agent.rl import create_policy, max_q
 
 policy_name = os.environ.get("POLICY", EPSILON_GREEDY_POLICY_NAME)
+
+
+def print_features_and_model(self, features: np.array, model: np.array):
+    self.logger.debug(f"Features: {[list(item) for item in features]}, Model: {model}")
 
 
 def setup(self):
@@ -23,10 +28,10 @@ def setup(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
-    self.policy = q_learning.create_policy(policy_name, self.logger)
+    self.policy = create_policy(policy_name, self.logger)
     if self.train or not os.path.isfile(MODEL_NAME):
         self.logger.info("Setting up model from scratch.")
-        weights = np.random.rand(len(ACTIONS))
+        weights = np.random.rand(NUMBER_OF_FEATURES)
         self.model = weights / weights.sum()
     else:
         self.logger.info("Loading model from saved state.")
@@ -48,10 +53,10 @@ def act(self, game_state: dict) -> str:
     #     self.logger.debug(f"Chosen the following action purely at random: {rand_action}")
     #     return rand_action
 
-    self.logger.debug(f"Choosing an action for step {game_state['step']}")
+    self.logger.debug(f"--- Choosing an action for step {game_state['step']}")
 
     # get best action based on q_values
     features = state_to_features(game_state)
-    self.logger.debug(f"Features: {features}")
-    q_max, best_actions = q_learning.max_q(features, self.model)
+    _, best_actions = max_q(features, self.model)
+    print_features_and_model(self, features, self.model)
     return self.policy(ACTIONS[np.random.choice(best_actions)])

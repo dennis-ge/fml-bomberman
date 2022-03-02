@@ -1,13 +1,16 @@
 import logging
-from typing import Any
 
-from agent_code.my_agent.feature_extraction import *
+from agent_code.my_agent.features import *
 
-"""
-create_policy: returns function
-policy: gets best action and returns selected action (sometimes the same, sometimes sth different) 
 
-"""
+class Transition:
+    def __init__(self, state: dict, action: str, next_state: dict, reward: int):
+        self.state: dict = state
+        self.action: str = action
+        self.next_state: dict = next_state
+        self.reward: float = reward
+        self.state_features: np.array = state_to_features(self.state)
+        self.next_state_features: np.array = state_to_features(self.next_state)
 
 
 def create_policy(policy_name: str, logger: logging.Logger):
@@ -42,12 +45,6 @@ def q_function(features: np.array, model: np.array):
     # no action in q_function since this is represented in model/weights
     return np.dot(features, model)
 
-    # q_value = 0
-    # for index, feature in enumerate(features):
-    #     # iterate over all features and compute the action
-    #     q_value += feature * model[index]
-    # return q_value
-
 
 def max_q(features: np.array, model: np.array) -> Tuple[float, List[int]]:
     q_values = q_function(features, model)
@@ -62,19 +59,13 @@ def td_update(model: np.array, t: Transition) -> np.array:
     Update the model based on the TD error.
     :return:
     """
-    # q_values = np.dot(state_to_features(game_state), self.model)
-    # best_actions = np.where(q_values == np.max(q_values))[0]
+    updated_weights = np.zeros(len(model))
+    q_max, _ = max_q(t.next_state_features, model)
 
-    updated_model = np.zeros(len(ACTIONS))
-    q_max, _ = max_q(t.next_state, model)
+    state_action = t.state_features[ACTIONS.index(t.action), :]
+    for _ in range(len(model)):
+        td_error = t.reward + DISCOUNT_FACTOR * q_max - q_function(state_action, model)
+        updated_weights = updated_weights + LEARNING_RATE * td_error * state_action
 
-    # q_values = np.zeros(len(ACTIONS))
-    # for idx, next_action in enumerate(ACTIONS):
-    #     q_values[idx] = q_function(t.next_state, self.model)
-
-    for idx, weight in enumerate(model):
-        td_error = (t.reward + DISCOUNT_FACTOR * q_max - q_function(t.state, model))
-        updated_model[idx] = weight + LEARNING_RATE * td_error
-
-    # self.logger.info(f'Model after TD Update: {updated_model}')
+    updated_model = model + updated_weights
     return updated_model

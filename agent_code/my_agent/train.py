@@ -1,16 +1,10 @@
 import pickle
 from collections import deque
 
-import agent_code.my_agent.q_learning as q
-from agent_code.my_agent.agent_settings import Transition, REWARDS, MOVED_TOWARDS_COIN
-from agent_code.my_agent.feature_extraction import *
-
-# Hyper parameters -- DO modify
-TRANSITION_HISTORY_SIZE = 3  # keep only ... last transitions
-RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
-
-# Events
-PLACEHOLDER_EVENT = "PLACEHOLDER"
+import agent_code.my_agent.rl as q
+from agent_code.my_agent.agent_settings import REWARDS, MOVED_TOWARDS_COIN
+from agent_code.my_agent.rl import Transition
+from agent_code.my_agent.features import *
 
 
 def setup_training(self):
@@ -51,11 +45,12 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
             self.logger.debug(f'Custom event occurred: {MOVED_TOWARDS_COIN}')
 
         # calculate features for old state and for new state
-        transition = Transition(state_to_features(old_game_state), self_action, state_to_features(new_game_state), reward_from_events(self, events))
+        transition = Transition(old_game_state, self_action, new_game_state, reward_from_events(self, events))
         self.model = q.td_update(self.model, transition)
         self.transitions.append(transition)
 
     self.logger.debug(f'Encountered game event(s) {", ".join(map(repr, events))} in step {new_game_state["step"]}')
+
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
     """
@@ -71,7 +66,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     :param self: The same object that is passed to all of your callbacks.
     """
     self.logger.debug(f'Encountered event(s) {", ".join(map(repr, events))} in final step')
-    self.transitions.append(Transition(state_to_features(last_game_state), last_action, None, reward_from_events(self, events)))
+    self.transitions.append(Transition(last_game_state, last_action, None, reward_from_events(self, events)))
 
     # Store the model
     with open(MODEL_NAME, "wb") as file:
