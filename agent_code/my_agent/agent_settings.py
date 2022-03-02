@@ -1,24 +1,28 @@
 from typing import Tuple
 
-import numpy as np
-
 import events as e
 
-NUMBER_OF_FEATURES = 1
+NUMBER_OF_FEATURES = 2
 MODEL_NAME = "models/my_agent.pt"
 
 # Possible Actions
-ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT']  # BOMB
+ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT']  # , 'BOMB']
 
 # Names for policies
 GREEDY_POLICY_NAME = 'greedy'
 EPSILON_GREEDY_POLICY_NAME = 'epsilon_greedy'
 DECAY_GREEDY_POLICY_NAME = 'decay_greedy'
 
-EPSILON = 0.1  # eps for epsilon greedy policy
-LEARNING_RATE = 0.05  # alpha learning rate
-DISCOUNT_FACTOR = 0.70  # gamma discount factor
+EPSILON = 0.20  # eps for epsilon greedy policy
+LEARNING_RATE = 0.1  # alpha learning rate
+DISCOUNT_FACTOR = 0.50  # gamma discount factor
+BIAS = 0.1
 
+# Train Hyper parameters
+TRANSITION_HISTORY_SIZE = 3  # keep only ... last transitions
+RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
+
+# Custom Events
 MOVED_TOWARDS_COIN = "MOVED_TOWARDS_COIN"
 
 REWARDS = {
@@ -37,20 +41,11 @@ REWARDS = {
     e.MOVED_DOWN: -1,
     e.MOVED_LEFT: -1,
     e.MOVED_RIGHT: -1,
-    e.WAITED: -1,
+    e.WAITED: -50,
     e.GOT_KILLED: -50,
-    e.INVALID_ACTION: -100,
+    e.INVALID_ACTION: -50,
     e.KILLED_SELF: -100,
 }
-
-
-class Transition:
-
-    def __init__(self, state: np.array, action, next_state: np.array, reward):
-        self.state = state  # np.array of features
-        self.action = action
-        self.next_state = next_state
-        self.reward = reward
 
 
 def get_new_position(action: str, x: int, y: int) -> Tuple[int, int]:
