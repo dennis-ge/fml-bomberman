@@ -3,8 +3,6 @@ from random import shuffle
 
 import numpy as np
 
-import settings as s
-
 
 def look_for_targets(free_space, start, targets, logger=None):
     """Find direction of closest target that can be reached via free tiles.

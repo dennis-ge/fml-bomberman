@@ -1,10 +1,10 @@
 import logging
 
-from agent_code.my_agent.features import *
+from agent_code.task1.features import *
 
 
 class Transition:
-    def __init__(self, state: dict, action: str, next_state: dict, reward: int):
+    def __init__(self, state: dict, action: str, next_state: dict or None, reward: int):
         self.state: dict = state
         self.action: str = action
         self.next_state: dict = next_state
@@ -41,13 +41,8 @@ def create_policy(policy_name: str, logger: logging.Logger):
     raise ValueError(f'Unknown policy {policy_name}')
 
 
-def q_function(features: np.array, model: np.array):
-    # no action in q_function since this is represented in model/weights
-    return np.dot(features, model)
-
-
 def max_q(features: np.array, model: np.array) -> Tuple[float, List[int]]:
-    q_values = q_function(features, model)
+    q_values = np.dot(features, model)
     q_max = np.max(q_values)
     a_max = np.where(q_values == q_max)[0]  # best actions
 
@@ -64,8 +59,9 @@ def td_update(model: np.array, t: Transition) -> np.array:
 
     state_action = t.state_features[ACTIONS.index(t.action), :]
     for _ in range(len(model)):
-        td_error = t.reward + DISCOUNT_FACTOR * q_max - q_function(state_action, model)
+        td_error = t.reward + DISCOUNT_FACTOR * q_max - np.dot(state_action, model)
         updated_weights = updated_weights + LEARNING_RATE * td_error * state_action
 
     updated_model = model + updated_weights
     return updated_model
+

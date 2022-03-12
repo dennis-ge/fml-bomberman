@@ -1,10 +1,10 @@
 import pickle
 from collections import deque
+from csv import writer
 
-import agent_code.my_agent.rl as q
-from agent_code.my_agent.agent_settings import REWARDS, MOVED_TOWARDS_COIN
-from agent_code.my_agent.rl import Transition
-from agent_code.my_agent.features import *
+import agent_code.task1_double_q.rl as q
+from agent_code.task1_double_q.features import *
+from agent_code.task1_double_q.rl import Transition
 
 
 def setup_training(self):
@@ -17,6 +17,7 @@ def setup_training(self):
     """
     # Example: Setup an array that will note transition tuples
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
+    self.rewards = 0
 
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
@@ -38,15 +39,20 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     """
 
     if old_game_state is not None:
+        custom_events = []
 
-        # Idea: Add your own events to hand out rewards
         if moved_towards_coin(old_game_state, new_game_state):
-            events.append(MOVED_TOWARDS_COIN)
-            self.logger.debug(f'Custom event occurred: {MOVED_TOWARDS_COIN}')
+            custom_events.append(MOVED_TOWARDS_COIN)
+        else:
+            custom_events.append(MOVED_AWAY_FROM_COIN)
 
-        # calculate features for old state and for new state
-        transition = Transition(old_game_state, self_action, new_game_state, reward_from_events(self, events))
-        self.model = q.td_update(self.model, transition)
+        events.extend(custom_events)
+        self.logger.debug(f'Custom event occurred: {MOVED_TOWARDS_COIN}')
+
+        current_rewards = reward_from_events(self, events)
+        self.rewards += current_rewards
+        transition = Transition(old_game_state, self_action, new_game_state, current_rewards)
+        self.weights1, self.weights2 = q.td_update(self.weights1, self.weights2, transition)
         self.transitions.append(transition)
 
     self.logger.debug(f'Encountered game event(s) {", ".join(map(repr, events))} in step {new_game_state["step"]}')
@@ -64,13 +70,23 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     This is also a good place to store an agent that you updated.
 
     :param self: The same object that is passed to all of your callbacks.
+    :param last_game_state:
+    :param last_action:
+    :param events:
     """
     self.logger.debug(f'Encountered event(s) {", ".join(map(repr, events))} in final step')
-    self.transitions.append(Transition(last_game_state, last_action, None, reward_from_events(self, events)))
+    current_rewards = reward_from_events(self, events)
+    self.rewards += current_rewards
+    self.transitions.append(Transition(last_game_state, last_action, None, current_rewards))
 
-    # Store the model
-    with open(MODEL_NAME, "wb") as file:
-        pickle.dump(self.model, file)
+    # Store the weights
+    with open(MODEL_NAME_1, "wb") as file:
+        pickle.dump(self.weights1, file)
+    with open(MODEL_NAME_2, "wb") as file:
+        pickle.dump(self.weights2, file)
+    with open(REWARDS_NAME, 'a') as file:
+        w = writer(file)
+        w.writerow([self.rewards])
 
 
 def reward_from_events(self, events: List[str]) -> int:
@@ -90,7 +106,7 @@ def reward_from_events(self, events: List[str]) -> int:
 
 def moved_towards_coin(old_state, new_state):
     """
-    Checks whether the agent moved towards a coin. 
+    Feature 1: Checks whether the agent moved towards a coin.
     """
 
     old_min_d = calc_min_distance(old_state["coins"], *old_state["self"][3])

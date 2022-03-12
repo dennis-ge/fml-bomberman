@@ -1,49 +1,60 @@
+import os
+from datetime import datetime, timezone
 from typing import Tuple
 
 import events as e
 
-NUMBER_OF_FEATURES = 2
-MODEL_NAME = "models/my_agent.pt"
+#
+# Agent settings
+#
+AGENT_NAME = "task1"
+TIMESTAMP = datetime.now(timezone.utc).strftime("%m-%dT%H:%M")
+MODEL_NAME = f"models/{AGENT_NAME}-{TIMESTAMP}.pt"
+REWARDS_NAME = f"models/rewards-{AGENT_NAME}-{TIMESTAMP}.csv"
 
-# Possible Actions
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT']  # , 'BOMB']
 
-# Names for policies
+#
+# ML/Hyperparameter
+#
 GREEDY_POLICY_NAME = 'greedy'
 EPSILON_GREEDY_POLICY_NAME = 'epsilon_greedy'
 DECAY_GREEDY_POLICY_NAME = 'decay_greedy'
 
-EPSILON = 0.20  # eps for epsilon greedy policy
-LEARNING_RATE = 0.1  # alpha learning rate
-DISCOUNT_FACTOR = 0.50  # gamma discount factor
-BIAS = 0.1
+policy_name = os.environ.get("POLICY", EPSILON_GREEDY_POLICY_NAME)
 
-# Train Hyper parameters
+NUMBER_OF_FEATURES = 4
+EPSILON = os.environ.get("EPS", 0.15)  # eps for epsilon greedy policy
+LEARNING_RATE = os.environ.get("ALPHA", 0.1)  # alpha learning rate
+DISCOUNT_FACTOR = os.environ.get("GAMMA", 0.60)  # gamma discount factor
+BIAS = os.environ.get("BIAS", 0.1)
 TRANSITION_HISTORY_SIZE = 3  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 
 # Custom Events
 MOVED_TOWARDS_COIN = "MOVED_TOWARDS_COIN"
+MOVED_AWAY_FROM_COIN = "MOVED_AWAY_FROM_COIN"
 
 REWARDS = {
     # Positive
-    e.CRATE_DESTROYED: 2,
-    e.BOMB_EXPLODED: 2,
-    e.COIN_FOUND: 5,
+    e.CRATE_DESTROYED: 2,  # A crate was destroyed by own bomb.
+    e.COIN_FOUND: 5,  # A coin has been revealed by own bomb.
     e.BOMB_DROPPED: 5,
+    e.BOMB_EXPLODED: 2,  # Own bomb dropped earlier on has exploded.
     e.COIN_COLLECTED: 10,
     e.OPPONENT_ELIMINATED: 0,
     e.KILLED_OPPONENT: 20,
     e.SURVIVED_ROUND: 10,
     MOVED_TOWARDS_COIN: 5,
     # Negative
+    MOVED_AWAY_FROM_COIN: -10,
     e.MOVED_UP: -1,
     e.MOVED_DOWN: -1,
     e.MOVED_LEFT: -1,
     e.MOVED_RIGHT: -1,
     e.WAITED: -50,
     e.GOT_KILLED: -50,
-    e.INVALID_ACTION: -50,
+    e.INVALID_ACTION: -50,  # Picked a non-existent action or one that couldn’t be executed.
     e.KILLED_SELF: -100,
 }
 

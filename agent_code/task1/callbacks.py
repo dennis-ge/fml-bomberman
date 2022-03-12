@@ -1,17 +1,10 @@
-import os
 import pickle
 
 import numpy as np
 
-from agent_code.my_agent.agent_settings import *
-from agent_code.my_agent.features import state_to_features
-from agent_code.my_agent.rl import create_policy, max_q
-
-policy_name = os.environ.get("POLICY", EPSILON_GREEDY_POLICY_NAME)
-
-
-def print_features_and_model(self, features: np.array, model: np.array):
-    self.logger.debug(f"Features: {[list(item) for item in features]}, Model: {model}")
+from agent_code.task1.agent_settings import *
+from agent_code.task1.features import state_to_features
+from agent_code.task1.rl import create_policy, max_q
 
 
 def setup(self):
@@ -53,10 +46,11 @@ def act(self, game_state: dict) -> str:
     #     self.logger.debug(f"Chosen the following action purely at random: {rand_action}")
     #     return rand_action
 
-    self.logger.debug(f"--- Choosing an action for step {game_state['step']}")
+    self.logger.debug(f"--- Choosing an action for step {game_state['step']} at position {game_state['self'][3]}")
 
     # get best action based on q_values
     features = state_to_features(game_state)
     _, best_actions = max_q(features, self.model)
-    print_features_and_model(self, features, self.model)
+    self.logger.debug(f"Features: {[list(item) for item in features]}, Model: {self.model}")
+
     return self.policy(ACTIONS[np.random.choice(best_actions)])

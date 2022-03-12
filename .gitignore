@@ -197,3 +197,5 @@ screenshots/*.webm
 
 replays/
 results/
+
+agent_code/*/models/*.csv
