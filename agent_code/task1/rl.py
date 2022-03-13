@@ -13,10 +13,10 @@ class Transition:
         self.next_state_features: np.array = state_to_features(self.next_state)
 
 
-def create_policy(policy_name: str, logger: logging.Logger):
+def create_policy(name: str, logger: logging.Logger):
     """
     Creates a policy based on the parameters.
-    :param policy_name: Name of the policy.
+    :param name: Name of the policy.
     :param logger:
     :return: A policy function.
     """
@@ -31,14 +31,24 @@ def create_policy(policy_name: str, logger: logging.Logger):
         logger.debug(f"Epsilon greedy policy: Given action is '{action}', Chosen action is '{chosen_action}'")
         return chosen_action
 
-    if policy_name == GREEDY_POLICY_NAME:
-        return greedy_policy
-    elif policy_name == EPSILON_GREEDY_POLICY_NAME:
-        return epsilon_greedy_policy
-    elif policy_name == DECAY_GREEDY_POLICY_NAME:
-        raise NotImplementedError("Decay greedy policy not implemented.")
+    def decay_greedy_policy(action: str, curr_episode: int, prev_eps: float):
+        eps = EPSILON_START
+        if curr_episode > 0:
+            new_eps = prev_eps * EPSILON_DECAY
+            eps = new_eps if new_eps > EPSILON_END else EPSILON_END
+        rand_action = np.random.choice(ACTIONS)
+        chosen_action = np.random.choice([action, rand_action], p=[1 - eps, eps])
+        logger.debug(f"Decay epsilon greedy policy: Given action is '{action}', Chosen action is '{chosen_action}' with eps={eps}")
+        return chosen_action, eps
 
-    raise ValueError(f'Unknown policy {policy_name}')
+    if name == GREEDY_POLICY_NAME:
+        return greedy_policy
+    elif name == EPSILON_GREEDY_POLICY_NAME:
+        return epsilon_greedy_policy
+    elif name == DECAY_GREEDY_POLICY_NAME:
+        return decay_greedy_policy
+
+    raise ValueError(f'Unknown policy {name}')
 
 
 def max_q(features: np.array, model: np.array) -> Tuple[float, List[int]]:

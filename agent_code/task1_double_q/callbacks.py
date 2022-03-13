@@ -21,6 +21,10 @@ def setup(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
+    # decay policy
+    self.episode = 0
+    self.prev_eps = EPSILON_START
+
     self.policy = create_policy(policy_name, self.logger)
     if self.train or not os.path.isfile(MODEL_NAME_1) and not os.path.isfile(MODEL_NAME_2):
         self.logger.info("Setting up model from scratch.")
@@ -56,5 +60,9 @@ def act(self, game_state: dict) -> str:
     features = state_to_features(game_state)
     _, best_actions = max_q(features, self.weights1, self.weights2)
     self.logger.debug(f"Features: {[list(item) for item in features]}, Weights1: {self.weights1}, Weights2: {self.weights2}")
+
+    if policy_name == DECAY_GREEDY_POLICY_NAME:
+        action, self.prev_eps = self.policy(ACTIONS[np.random.choice(best_actions)], self.episode, self.prev_eps)
+        return action
 
     return self.policy(ACTIONS[np.random.choice(best_actions)])

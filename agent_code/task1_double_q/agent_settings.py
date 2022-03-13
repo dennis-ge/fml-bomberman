@@ -9,9 +9,9 @@ import events as e
 #
 AGENT_NAME = "task1_double_q"
 TIMESTAMP = datetime.now(timezone.utc).strftime("%m-%dT%H:%M")
-MODEL_NAME_1 = f"models/1_{AGENT_NAME}-{TIMESTAMP}.pt"
-MODEL_NAME_2 = f"models/2_{AGENT_NAME}-{TIMESTAMP}.pt"
-REWARDS_NAME = f"models/rewards-{AGENT_NAME}-{TIMESTAMP}.csv"
+MODEL_NAME_1 = f"../../dump/1_{AGENT_NAME}-{TIMESTAMP}.pt"
+MODEL_NAME_2 = f"../../dump/2_{AGENT_NAME}-{TIMESTAMP}.pt"
+REWARDS_NAME = f"../../dump/rewards-{AGENT_NAME}-{TIMESTAMP}.csv"
 
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT']  # , 'BOMB']
 
@@ -24,8 +24,13 @@ DECAY_GREEDY_POLICY_NAME = 'decay_greedy'
 
 policy_name = os.environ.get("POLICY", EPSILON_GREEDY_POLICY_NAME)
 
+NUMBER_OF_ROUNDS = os.getenv("N_ROUNDS", 100)
 NUMBER_OF_FEATURES = 4
 EPSILON = os.environ.get("EPS", 0.15)  # eps for epsilon greedy policy
+EPSILON_START = os.environ.get("EPS_START", 1)
+EPSILON_END = os.environ.get("EPS_MIN", 0.05)
+EPSILON_DECAY = os.environ.get("EPS_DECAY", 0.9994)
+
 LEARNING_RATE = os.environ.get("ALPHA", 0.1)  # alpha learning rate
 DISCOUNT_FACTOR = os.environ.get("GAMMA", 0.60)  # gamma discount factor
 BIAS = os.environ.get("BIAS", 0.1)

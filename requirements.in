@@ -6,3 +6,4 @@ scikit-learn
 scipy
 matplotlib
 jupyter
+python-json-logger

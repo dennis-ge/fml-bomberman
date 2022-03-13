@@ -2,6 +2,7 @@ import os
 from argparse import ArgumentParser
 from pathlib import Path
 from time import sleep, time
+
 from tqdm import tqdm
 
 import settings as s
@@ -94,7 +95,7 @@ def world_controller(world, n_rounds, *,
     world.end()
 
 
-def main(argv = None):
+def main(argv=None):
     parser = ArgumentParser()
 
     subparsers = parser.add_subparsers(dest='command_name', required=True)

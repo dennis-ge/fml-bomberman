@@ -31,12 +31,22 @@ def create_policy(name: str, logger: logging.Logger):
         logger.debug(f"Epsilon greedy policy: Given action is '{action}', Chosen action is '{chosen_action}'")
         return chosen_action
 
+    def decay_greedy_policy(action: str, curr_episode: int, prev_eps: float):
+        eps = EPSILON_START
+        if curr_episode > 0:
+            new_eps = prev_eps * EPSILON_DECAY
+            eps = new_eps if new_eps > EPSILON_END else EPSILON_END
+        rand_action = np.random.choice(ACTIONS)
+        chosen_action = np.random.choice([action, rand_action], p=[1 - eps, eps])
+        logger.debug(f"Decay epsilon greedy policy: Given action is '{action}', Chosen action is '{chosen_action}' with eps={eps}")
+        return chosen_action, eps
+
     if name == GREEDY_POLICY_NAME:
         return greedy_policy
     elif name == EPSILON_GREEDY_POLICY_NAME:
         return epsilon_greedy_policy
     elif name == DECAY_GREEDY_POLICY_NAME:
-        raise NotImplementedError("Decay greedy policy not implemented.")
+        return decay_greedy_policy
 
     raise ValueError(f'Unknown policy {name}')
 

@@ -183,6 +183,8 @@ python-dateutil==2.8.2
     #   jupyter-client
     #   matplotlib
     #   pandas
+python-json-logger==2.0.2
+    # via -r requirements.in
 pytz==2021.3
     # via pandas
 pyzmq==22.3.0

@@ -199,3 +199,4 @@ replays/
 results/
 
 agent_code/*/models/*.csv
+dump/

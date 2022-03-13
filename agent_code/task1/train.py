@@ -74,7 +74,8 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     :param last_action:
     :param events:
     """
-    self.logger.debug(f'Encountered event(s) {", ".join(map(repr, events))} in final step')
+    self.episode += 1
+    self.logger.debug(f'Encountered event(s) {", ".join(map(repr, events))} in final step (Episode {self.episode})')
     current_rewards = reward_from_events(self, events)
     self.rewards += current_rewards
     self.transitions.append(Transition(last_game_state, last_action, None, current_rewards))
