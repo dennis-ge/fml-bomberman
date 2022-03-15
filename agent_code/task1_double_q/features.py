@@ -3,6 +3,7 @@ from typing import List
 import numpy as np
 from scipy.spatial.distance import cityblock
 
+from agent_code.coin_collector_agent.callbacks import look_for_targets
 from agent_code.task1_double_q.agent_settings import *
 
 
@@ -17,22 +18,18 @@ def calc_min_distance(coins: List[Tuple[int, int]], x: int, y: int) -> int:
     return min_d
 
 
-def feat_1(field: np.array, coins: List[Tuple[int, int]], x: int, y: int) -> np.array:
+def feat_1(free_fields: np.array, coins: List[Tuple[int, int]], x: int, y: int) -> np.array:
     """
     Agent moves towards coin
     """
     feature = np.zeros(len(ACTIONS))
 
-    # free_space = field == 0
-    # best_direction = look_for_targets(free_space, (x, y), coins)
+    best_direction = look_for_targets(free_fields, (x, y), coins)
 
     if coins:
-        old_min_d = calc_min_distance(coins, x, y)
         for idx, action in enumerate(ACTIONS):
             new_x, new_y = get_new_position(action, x, y)
-            new_min_d = calc_min_distance(coins, new_x, new_y)
-            # if (new_x, new_y) == best_direction:
-            if new_min_d < old_min_d:
+            if (new_x, new_y) == best_direction:
                 feature[idx] = 1
 
     return feature
@@ -43,7 +40,6 @@ def feat_2(coins: List[Tuple[int, int]], x: int, y: int) -> np.array:
     Agent collects coin
     """
     feature = np.zeros(len(ACTIONS))
-
     if coins:
         for idx, action in enumerate(ACTIONS):
             new_x, new_y = get_new_position(action, x, y)
@@ -55,10 +51,9 @@ def feat_2(coins: List[Tuple[int, int]], x: int, y: int) -> np.array:
 
 def feat_3(field: np.array, x: int, y: int) -> np.array:
     """
-     Agent performs invalid action
+     Agent performs valid action
     """
     feature = np.zeros(len(ACTIONS))
-
     for idx, action in enumerate(ACTIONS):
         if action == "WAIT":
             continue
@@ -71,6 +66,26 @@ def feat_3(field: np.array, x: int, y: int) -> np.array:
             continue
 
         feature[idx] = 1
+
+    return feature
+
+
+def feat_4(free_fields: np.array, crates: List[Tuple[int, int]], x: int, y: int) -> np.array:
+    """
+    Agent moves towards crate
+    """
+    feature = np.zeros(len(ACTIONS))
+
+    if crates:
+        for x, y in crates:
+            free_fields[x, y] = True
+
+        best_direction = look_for_targets(free_fields, (x, y), crates)
+
+        for idx, action in enumerate(ACTIONS):
+            new_x, new_y = get_new_position(action, x, y)
+            if (new_x, new_y) == best_direction:
+                feature[idx] = 1
 
     return feature
 
@@ -94,11 +109,16 @@ def state_to_features(game_state: dict) -> np.array:
     if game_state is None:
         return None
 
+    field = game_state["field"]
+    free_fields = field == 0
+    crates = [(x, y) for x, y in np.ndindex(field.shape) if field[x, y] == 1]
+
     stacked_channels = np.vstack((
         [BIAS] * len(ACTIONS),
-        feat_1(game_state["field"], game_state["coins"], *game_state["self"][3]),
+        feat_1(free_fields, game_state["coins"], *game_state["self"][3]),
         feat_2(game_state["coins"], *game_state["self"][3]),
         feat_3(game_state["field"], *game_state["self"][3]),
+        feat_4(free_fields, crates, *game_state["self"][3]),
     ))
 
     return stacked_channels.T

@@ -36,7 +36,7 @@ AGENT_COLORS = ['blue', 'green', 'yellow', 'pink']
 
 # Game rules
 BOMB_POWER = 3
-BOMB_TIMER = 4
+BOMB_TIMER = 10
 EXPLOSION_TIMER = 2  # = 1 of bomb explosion + N of lingering around
 
 # Rules for agents

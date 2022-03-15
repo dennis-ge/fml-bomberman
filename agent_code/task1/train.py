@@ -41,13 +41,25 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     if old_game_state is not None:
         custom_events = []
 
-        if moved_towards_coin(old_game_state, new_game_state):
-            custom_events.append(MOVED_TOWARDS_COIN)
+        if len(old_game_state["coins"]) > 0:
+            if moved_towards_coin(old_game_state, new_game_state):
+                custom_events.append(MOVED_TOWARDS_COIN)
+            else:
+                custom_events.append(MOVED_AWAY_FROM_COIN)
+
+        if old_game_state["self"][3] in get_blast_radius(old_game_state["field"], old_game_state["bombs"]):
+            if moved_out_of_blast_radius(old_game_state, new_game_state):
+                custom_events.append(MOVED_OUT_OF_BLAST_RADIUS)
+            else:
+                custom_events.append(STAYED_IN_BLAST_RADIUS)
+
+        if moved_into_explosion_radius(old_game_state, new_game_state):
+            custom_events.append(MOVED_INTO_EXPLOSION_RADIUS)
         else:
-            custom_events.append(MOVED_AWAY_FROM_COIN)
+            custom_events.append(STAYED_OUT_OF_EXPLOSION_RADIUS)
 
         events.extend(custom_events)
-        self.logger.debug(f'Custom event occurred: {MOVED_TOWARDS_COIN}')
+        self.logger.debug(f'Custom event occurred: {custom_events}')
 
         current_rewards = reward_from_events(self, events)
         self.rewards += current_rewards
@@ -107,7 +119,37 @@ def moved_towards_coin(old_state, new_state):
     Feature 1: Checks whether the agent moved towards a coin.
     """
 
-    old_min_d = calc_min_distance(old_state["coins"], *old_state["self"][3])
-    new_min_d = calc_min_distance(new_state["coins"], *new_state["self"][3])
+    feature_old = feat_1(old_state["field"], old_state["coins"], *old_state["self"][3])
 
-    return new_min_d < old_min_d
+    idx = np.where(feature_old == 1)[0][0]
+    expected_new_x, expected_new_y = get_new_position(ACTIONS[idx], *old_state["self"][3])
+
+    actual_new_x, actual_new_y = new_state["self"][3]
+
+    return (expected_new_x, expected_new_y) == (actual_new_x, actual_new_y)
+
+
+def moved_out_of_blast_radius(old_state, new_state):
+    feature_old = feat_4(old_state["field"], old_state["bombs"], *old_state["self"][3])
+
+    idx = np.where(feature_old == 1)[0][0]
+    expected_new_x, expected_new_y = get_new_position(ACTIONS[idx], *old_state["self"][3])
+
+    actual_new_x, actual_new_y = new_state["self"][3]
+
+    return (expected_new_x, expected_new_y) == (actual_new_x, actual_new_y)
+
+
+def moved_into_explosion_radius(old_state, new_state):
+    feature_old = feat_5(old_state["field"], old_state["explosion_map"], *old_state["self"][3])
+
+    actual_new_x, actual_new_y = new_state["self"][3]
+
+    idxs = np.where(feature_old == 0)[0]  # get indexes where agent moves into explosion map
+
+    for idx in idxs:
+        expected_new_x, expected_new_y = get_new_position(ACTIONS[idx], *old_state["self"][3])
+        if (expected_new_x, expected_new_y) == (actual_new_x, actual_new_y):
+            return True
+
+    return False

@@ -70,9 +70,10 @@ def play_iteration(iteration: GameIteration):
 
 
 def play_game():
-    iteration_count = 3
     scenario = "coin-heaven"
-    all_agents = ["task1 task1_double_q", "task1", "task1_double_q"]
+    # all_agents = ["task1 task1_double_q", "task1", "task1_double_q"]
+    all_agents = ["task1"]
+    iteration_count = 1
 
     def execute(**kwargs):
         logger.info("Executing iteration", extra=kwargs)
@@ -82,7 +83,7 @@ def play_game():
     for i in range(iteration_count):
         mn = create_match_name(all_agents[i])
         execute(agents=all_agents[i], match_name=mn,
-                n_rounds=200, scenario=scenario, save_stats=f"results/{TIMESTAMP}-{mn}.json",
+                n_rounds=500, scenario=scenario, save_stats=f"results/{TIMESTAMP}-{mn}.json",
                 log_dir=os.path.dirname(os.path.abspath(__file__)) + "/logs",
                 seed=True)
 

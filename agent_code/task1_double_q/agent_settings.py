@@ -13,7 +13,7 @@ MODEL_NAME_1 = f"../../dump/1_{AGENT_NAME}-{TIMESTAMP}.pt"
 MODEL_NAME_2 = f"../../dump/2_{AGENT_NAME}-{TIMESTAMP}.pt"
 REWARDS_NAME = f"../../dump/rewards-{AGENT_NAME}-{TIMESTAMP}.csv"
 
-ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT']  # , 'BOMB']
+ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT'] #, 'BOMB']
 
 #
 # ML/Hyperparameter
@@ -25,7 +25,7 @@ DECAY_GREEDY_POLICY_NAME = 'decay_greedy'
 policy_name = os.environ.get("POLICY", EPSILON_GREEDY_POLICY_NAME)
 
 NUMBER_OF_ROUNDS = os.getenv("N_ROUNDS", 100)
-NUMBER_OF_FEATURES = 4
+NUMBER_OF_FEATURES = 5
 EPSILON = os.environ.get("EPS", 0.15)  # eps for epsilon greedy policy
 EPSILON_START = os.environ.get("EPS_START", 1)
 EPSILON_END = os.environ.get("EPS_MIN", 0.05)
