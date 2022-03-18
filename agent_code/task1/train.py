@@ -53,10 +53,17 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
             else:
                 custom_events.append(STAYED_IN_BLAST_RADIUS)
 
-        if moved_into_explosion_radius(old_game_state, new_game_state):
-            custom_events.append(MOVED_INTO_EXPLOSION_RADIUS)
-        else:
-            custom_events.append(STAYED_OUT_OF_EXPLOSION_RADIUS)
+        if len(old_game_state["bombs"]) > 0:
+            if moved_towards_bomb_fields(old_game_state, new_game_state):
+                custom_events.append(MOVED_TOWARDS_BOMB_FIELDS)
+            else:
+                custom_events.append(MOVED_AWAY_FROM_BOMB_FIELDS)
+
+        if 1 in feat_6(old_game_state["field"], old_game_state["self"][2], *old_game_state["self"][3]):
+            if new_game_state["self"][2]:
+                custom_events.append(PLACED_BOMB_NEXT_TO_CRATE)
+            else:
+                custom_events.append(DID_NOT_PLACED_BOMB_NEXT_TO_CRATE)
 
         events.extend(custom_events)
         self.logger.debug(f'Custom event occurred: {custom_events}')
@@ -140,12 +147,15 @@ def moved_out_of_blast_radius(old_state, new_state):
     return (expected_new_x, expected_new_y) == (actual_new_x, actual_new_y)
 
 
-def moved_into_explosion_radius(old_state, new_state):
-    feature_old = feat_5(old_state["field"], old_state["explosion_map"], *old_state["self"][3])
+def moved_towards_bomb_fields(old_state, new_state):
+    blast_radius = get_blast_radius(old_state["field"], old_state["bombs"])
+    bomb_fields = [(x, y) for x, y in np.ndindex( old_state["explosion_map"].shape) if ( old_state["explosion_map"][x, y] != 0) or (x, y) in blast_radius]
+
+    feature_old = feat_5(old_state["field"],bomb_fields, *old_state["self"][3])
 
     actual_new_x, actual_new_y = new_state["self"][3]
 
-    idxs = np.where(feature_old == 0)[0]  # get action indexes where agent moves into explosion map
+    idxs = np.where(feature_old == 0)[0]  # get action indexes where agent moves into bomb fields map
 
     for idx in idxs:
         expected_new_x, expected_new_y = get_new_position(ACTIONS[idx], *old_state["self"][3])

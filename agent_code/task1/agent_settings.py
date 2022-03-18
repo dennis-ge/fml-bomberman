@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timezone
-from typing import Tuple
+from typing import *
 
 import events as e
 
@@ -10,8 +10,8 @@ import events as e
 AGENT_NAME = "task1"
 TIMESTAMP = datetime.now(timezone.utc).strftime("%m-%dT%H:%M")
 
-MODEL_NAME = f"../../dump/{AGENT_NAME}-{TIMESTAMP}.pt"  # We store each model first within the dump directory
-PROD_MODEL_NAME = f"./models/{AGENT_NAME}-1000r.pt"  # When a model is trained with enough rounds, we move it into the internal models directory
+MODEL_NAME = "../../dump/" + os.environ.get("MODEL_NAME", f"{AGENT_NAME}-{TIMESTAMP}.pt")  # We store each model first within the dump directory
+PROD_MODEL_NAME = f"./models/{AGENT_NAME}-trained.pt"  # When a model is trained with enough rounds, we move it into the internal models directory
 REWARDS_NAME = f"../../dump/rewards-{AGENT_NAME}-{TIMESTAMP}.csv"
 
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
@@ -19,7 +19,7 @@ ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 #
 # ML/Hyperparameter
 #
-NUMBER_OF_FEATURES = 6
+NUMBER_OF_FEATURES = 7
 
 GREEDY_POLICY_NAME = 'greedy'
 EPSILON_GREEDY_POLICY_NAME = 'epsilon_greedy'
@@ -34,7 +34,7 @@ EPSILON_END = os.environ.get("EPS_MIN", 0.05)
 EPSILON_DECAY = os.environ.get("EPS_DECAY", 0.9994)
 
 LEARNING_RATE = os.environ.get("ALPHA", 0.1)  # alpha learning rate
-DISCOUNT_FACTOR = os.environ.get("GAMMA", 0.60)  # gamma discount factor
+DISCOUNT_FACTOR = os.environ.get("GAMMA", 0.80)  # gamma discount factor
 BIAS = os.environ.get("BIAS", 0.1)
 TRANSITION_HISTORY_SIZE = 3  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
@@ -45,31 +45,36 @@ MOVED_OUT_OF_BLAST_RADIUS = "MOVED_OUT_OF_BLAST_RADIUS"
 MOVED_AWAY_FROM_COIN = "MOVED_AWAY_FROM_COIN"
 STAYED_IN_BLAST_RADIUS = "STAYED_IN_BLAST_RADIUS"
 # TODO MOVED_INTO_BLAST_RADIUS
-STAYED_OUT_OF_EXPLOSION_RADIUS = "STAYED_OUT_OF_EXPLOSION_RADIUS"  # TODO verify if it is even possible to reach explosion radius
-MOVED_INTO_EXPLOSION_RADIUS = "MOVED_INTO_EXPLOSION_RADIUS"
+MOVED_TOWARDS_BOMB_FIELDS = "MOVED_TOWARDS_BOMB_FIELDS"
+MOVED_AWAY_FROM_BOMB_FIELDS = "MOVED_AWAY_FROM_BOMB_FIELDS"
+MOVED_TOWARDS_CRATE = "MOVED_TOWARDS_CRATE"  # TODO
+PLACED_BOMB_NEXT_TO_CRATE = "PLACED_BOMB_NEXT_TO_CRATE"  # and has a way to escape
+DID_NOT_PLACED_BOMB_NEXT_TO_CRATE = "DID_NOT_PLACED_BOMB_NEXT_TO_CRATE"  # and has a way to escape
 
 REWARDS = {
     # Positive
-    e.CRATE_DESTROYED: 2,  # A crate was destroyed by own bomb.
-    e.COIN_FOUND: 5,  # A coin has been revealed by own bomb.
-    e.BOMB_DROPPED: 5,
+    e.CRATE_DESTROYED: 5,  # A crate was destroyed by own bomb.
+    e.COIN_FOUND: 10,  # A coin has been revealed by own bomb.
+    e.BOMB_DROPPED: 10,
     e.BOMB_EXPLODED: 2,  # Own bomb dropped earlier on has exploded.
-    e.COIN_COLLECTED: 10,
+    e.COIN_COLLECTED: 20,
     e.OPPONENT_ELIMINATED: 0,
-    e.KILLED_OPPONENT: 20,
-    e.SURVIVED_ROUND: 10,
-    MOVED_TOWARDS_COIN: 5,
-    MOVED_OUT_OF_BLAST_RADIUS: 15,
-    STAYED_OUT_OF_EXPLOSION_RADIUS: 2,
+    e.KILLED_OPPONENT: 0,
+    e.SURVIVED_ROUND: 100,
+    MOVED_TOWARDS_COIN: 15,
+    MOVED_OUT_OF_BLAST_RADIUS: 40,
+    MOVED_AWAY_FROM_BOMB_FIELDS: 10,
+    PLACED_BOMB_NEXT_TO_CRATE: 5,
     # Negative
-    MOVED_AWAY_FROM_COIN: -10,
-    STAYED_IN_BLAST_RADIUS: -15,
-    MOVED_INTO_EXPLOSION_RADIUS: -50,
+    DID_NOT_PLACED_BOMB_NEXT_TO_CRATE: -10,
+    MOVED_AWAY_FROM_COIN: -20,
+    STAYED_IN_BLAST_RADIUS: -25,
+    MOVED_TOWARDS_BOMB_FIELDS: -20,
     e.MOVED_UP: -1,
     e.MOVED_DOWN: -1,
     e.MOVED_LEFT: -1,
     e.MOVED_RIGHT: -1,
-    e.WAITED: -50,
+    e.WAITED: -40,
     e.GOT_KILLED: -50,
     e.INVALID_ACTION: -50,  # Picked a non-existent action or one that couldn’t be executed.
     e.KILLED_SELF: -100,
@@ -87,3 +92,12 @@ def get_new_position(action: str, x: int, y: int) -> Tuple[int, int]:
     }
 
     return switch[action]
+
+
+def get_neighbor_positions(x: int, y: int) -> List[Tuple[int, int]]:
+    return [
+        (x, y + 1),
+        (x + 1, y),
+        (x, y - 1),
+        (x - 1, y)
+    ]
