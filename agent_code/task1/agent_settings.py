@@ -9,7 +9,9 @@ import events as e
 #
 AGENT_NAME = "task1"
 TIMESTAMP = datetime.now(timezone.utc).strftime("%m-%dT%H:%M")
-MODEL_NAME = f"../../dump/{AGENT_NAME}-{TIMESTAMP}.pt"
+
+MODEL_NAME = f"../../dump/{AGENT_NAME}-{TIMESTAMP}.pt"  # We store each model first within the dump directory
+PROD_MODEL_NAME = f"./models/{AGENT_NAME}-1000r.pt"  # When a model is trained with enough rounds, we move it into the internal models directory
 REWARDS_NAME = f"../../dump/rewards-{AGENT_NAME}-{TIMESTAMP}.csv"
 
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
@@ -43,9 +45,8 @@ MOVED_OUT_OF_BLAST_RADIUS = "MOVED_OUT_OF_BLAST_RADIUS"
 MOVED_AWAY_FROM_COIN = "MOVED_AWAY_FROM_COIN"
 STAYED_IN_BLAST_RADIUS = "STAYED_IN_BLAST_RADIUS"
 # TODO MOVED_INTO_BLAST_RADIUS
-STAYED_OUT_OF_EXPLOSION_RADIUS = "STAYED_OUT_OF_EXPLOSION_RADIUS" # TODO verify if it is even possible to reach explosion radius
+STAYED_OUT_OF_EXPLOSION_RADIUS = "STAYED_OUT_OF_EXPLOSION_RADIUS"  # TODO verify if it is even possible to reach explosion radius
 MOVED_INTO_EXPLOSION_RADIUS = "MOVED_INTO_EXPLOSION_RADIUS"
-
 
 REWARDS = {
     # Positive

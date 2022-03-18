@@ -1,4 +1,5 @@
 import pickle
+from timeit import default_timer as timer
 
 import numpy as np
 
@@ -25,13 +26,13 @@ def setup(self):
     self.prev_eps = EPSILON_START
 
     self.policy = create_policy(policy_name, self.logger)
-    if self.train or not os.path.isfile(MODEL_NAME):
+    if self.train or not os.path.isfile(PROD_MODEL_NAME):
         self.logger.info("Setting up model from scratch.")
         weights = np.random.rand(NUMBER_OF_FEATURES)
         self.model = weights / weights.sum()
     else:
         self.logger.info("Loading model from saved state.")
-        with open(MODEL_NAME, "rb") as file:
+        with open(PROD_MODEL_NAME, "rb") as file:
             self.model = pickle.load(file)
 
 
@@ -44,6 +45,8 @@ def act(self, game_state: dict) -> str:
     :param game_state: The dictionary that describes everything on the board.
     :return: The action to take as a string.
     """
+    start = timer()
+
     # if self.train and random.random() < EPSILON:
     #     rand_action = np.random.choice(ACTIONS, p=[.22, .22, .22, .22, .12])
     #     self.logger.debug(f"Chosen the following action purely at random: {rand_action}")
@@ -60,4 +63,7 @@ def act(self, game_state: dict) -> str:
         action, self.prev_eps = self.policy(ACTIONS[np.random.choice(best_actions)], self.episode, self.prev_eps)
         return action
 
-    return self.policy(ACTIONS[np.random.choice(best_actions)])
+    action = self.policy(ACTIONS[np.random.choice(best_actions)])
+    end = timer()
+    self.logger.debug(f"Elapsed time: {end - start}s")
+    return action

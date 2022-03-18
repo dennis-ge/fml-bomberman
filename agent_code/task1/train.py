@@ -130,7 +130,7 @@ def moved_towards_coin(old_state, new_state):
 
 
 def moved_out_of_blast_radius(old_state, new_state):
-    feature_old = feat_4(old_state["field"], old_state["bombs"], *old_state["self"][3])
+    feature_old = feat_4(old_state["field"], old_state["bombs"], old_state["explosion_map"], *old_state["self"][3])
 
     idx = np.where(feature_old == 1)[0][0]
     expected_new_x, expected_new_y = get_new_position(ACTIONS[idx], *old_state["self"][3])
@@ -145,7 +145,7 @@ def moved_into_explosion_radius(old_state, new_state):
 
     actual_new_x, actual_new_y = new_state["self"][3]
 
-    idxs = np.where(feature_old == 0)[0]  # get indexes where agent moves into explosion map
+    idxs = np.where(feature_old == 0)[0]  # get action indexes where agent moves into explosion map
 
     for idx in idxs:
         expected_new_x, expected_new_y = get_new_position(ACTIONS[idx], *old_state["self"][3])
