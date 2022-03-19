@@ -6,6 +6,14 @@ from agent_code.task1.agent_settings import *
 from settings import *
 
 
+def give_reachable_free_fields(free_space, x, y):
+    #list with reachable free fields
+
+
+
+    # return all free fields that the agent can reach
+    return 0
+
 #  copied from rule_based_agent/callbacks.py
 def look_for_targets(free_space, start, targets, logger=None):
     """Find direction of closest target that can be reached via free tiles.
@@ -91,12 +99,14 @@ def feat_2(coins: List[Tuple[int, int]], x: int, y: int) -> np.array:
     return feature
 
 
-def wait_is_intelligent(field: np.array, bombs: List[Tuple[Tuple[int, int], int]], explosion_map: np.array, x: int, y: int) -> bool:
+def wait_is_intelligent(field: np.array, bombs: List[Tuple[Tuple[int, int], int]], explosion_map: np.array, x: int,
+                        y: int) -> bool:
     radius = get_blast_radius(field, bombs)
     if len(radius) == 0:
         return False
 
-    safe_fields = [(x, y) for x, y in np.ndindex(field.shape) if (field[x, y] == 0) and (x, y) not in radius and explosion_map[x, y] == 0]
+    safe_fields = [(x, y) for x, y in np.ndindex(field.shape) if
+                   (field[x, y] == 0) and (x, y) not in radius and explosion_map[x, y] == 0]
     neighbor_fields = get_neighbor_positions(x, y)
     for neighbor_field in neighbor_fields:
         if neighbor_field in safe_fields:
@@ -105,7 +115,8 @@ def wait_is_intelligent(field: np.array, bombs: List[Tuple[Tuple[int, int], int]
     return True
 
 
-def feat_3(field: np.array, bombs: List[Tuple[Tuple[int, int], int]], explosion_map: np.array, x: int, y: int) -> np.array:
+def feat_3(field: np.array, bombs: List[Tuple[Tuple[int, int], int]], explosion_map: np.array,
+           bomb_action_possible: bool, x: int, y: int) -> np.array:
     """
      Agent performs intelligent action
         Agent
@@ -128,6 +139,9 @@ def feat_3(field: np.array, bombs: List[Tuple[Tuple[int, int], int]], explosion_
                 continue
 
         if action == "BOMB" and not escape_possible(field, x, y):
+            continue
+
+        if action == "BOMB" and not bomb_action_possible:
             continue
 
         feature[idx] = 1
@@ -161,7 +175,8 @@ def get_blast_radius(field: np.array, bombs):
     return radius
 
 
-def feat_4(field: np.array, bombs: List[Tuple[Tuple[int, int], int]], explosion_map: np.array, x: int, y: int) -> np.array:
+def feat_4(field: np.array, bombs: List[Tuple[Tuple[int, int], int]], explosion_map: np.array, x: int,
+           y: int) -> np.array:
     """
     Agent stays/moves out of the blast radius (and does not move into explosion radius)
     """
@@ -173,7 +188,8 @@ def feat_4(field: np.array, bombs: List[Tuple[Tuple[int, int], int]], explosion_
     radius = get_blast_radius(field, bombs)
 
     if (x, y) in radius:  # TODO multiple blast radius
-        safe_fields = [(x, y) for x, y in np.ndindex(field.shape) if (field[x, y] == 0) and (x, y) not in radius and explosion_map[x, y] == 0]
+        safe_fields = [(x, y) for x, y in np.ndindex(field.shape) if
+                       (field[x, y] == 0) and (x, y) not in radius and explosion_map[x, y] == 0]
         free_space = field == 0
         best_direction = look_for_targets(free_space, (x, y), safe_fields)
 
@@ -189,6 +205,9 @@ def feat_5(fields: np.array, bomb_fields: List[Tuple[int, int]], x: int, y: int)
     """
     Agent moves towards bomb -> Negative
     """
+
+    # TODO: only bombs that are next to the agent
+
     feature = np.ones(len(ACTIONS))
     if len(bomb_fields) > 0:
         free_space = fields == 0
@@ -216,7 +235,9 @@ def is_crate_nearby(field: np.array, x: int, y: int) -> bool:
 def escape_possible(field: np.array, x: int, y: int) -> bool:
     radius = get_blast_radius(field, [((x, y), 0)])
 
-    safe_fields = [(x, y) for x, y in np.ndindex(field.shape) if (field[x, y] == 0) and (x, y) not in radius]  # TODO improve by not calculating whole game board
+    #TODO: replace with reachable safe fields
+    safe_fields = [(x, y) for x, y in np.ndindex(field.shape) if
+                   (field[x, y] == 0) and (x, y) not in radius]  # TODO improve by not calculating whole game board
 
     min_dist = np.sum(np.abs(np.subtract(safe_fields, (x, y))), axis=1).min()
 
@@ -243,6 +264,53 @@ def feat_6(field: np.array, bomb_action_possible: bool, x: int, y: int) -> np.ar
     return feature
 
 
+def feat_7(field: np.array, x: int, y: int) -> np.array:
+    """
+    Agent moves towards crate
+    """
+    crates = [(x, y) for x, y in np.ndindex(field.shape) if
+              (field[x, y] == 1)]
+
+    feature = np.zeros(len(ACTIONS))
+
+    free_space = field == 0
+    best_direction = look_for_targets(free_space, (x, y), crates)
+
+    if crates:
+        for idx, action in enumerate(ACTIONS):
+            new_x, new_y = get_new_position(action, x, y)
+            if (new_x, new_y) == best_direction:
+                feature[idx] = 1
+
+    return feature
+
+def feat_8(field: np.array, bomb_action_possible: bool, x: int, y: int) -> np.array:
+    """
+    Agent places bomb that is useless
+
+    1. check if agent can place bomb
+    2. calculate bomb radius
+    3. check if create gets destroyed by bomb
+    4. TODO check if opponents can be destroyed
+    """
+    feature = np.zeros(len(ACTIONS))
+
+    if not bomb_action_possible:
+        return feature
+
+    radius = get_blast_radius(field, [((x, y), 0)])
+
+    crates = [(x, y) for x, y in np.ndindex(field.shape) if
+              (field[x, y] == 1)]
+
+    for crate in crates:
+        if crate in radius and escape_possible(field, x, y):
+            escape_possible(field, x, y)
+            feature[ACTIONS.index("BOMB")] = 1
+    return feature
+
+#TODO: negative reward for setting bombs that cannot destroy any create or kill an oponnent
+
 def state_to_features(game_state: dict) -> np.array:
     """
     Converts the game state to the input of your model, i.e. a feature vector.
@@ -262,16 +330,22 @@ def state_to_features(game_state: dict) -> np.array:
     blast_radius = get_blast_radius(field, bombs)
     # [()()()]
     #
-    bomb_fields = [(x, y) for x, y in np.ndindex(explosion_map.shape) if (explosion_map[x, y] != 0) or (x, y) in blast_radius]
+    bomb_fields = [(x, y) for x, y in np.ndindex(explosion_map.shape) if
+                   (explosion_map[x, y] != 0) or (x, y) in blast_radius]
+
+    bomb_action_possible = game_state["self"][2]
 
     stacked_channels = np.vstack((
         [BIAS] * len(ACTIONS),
         feat_1(game_state["field"], game_state["coins"], *game_state["self"][3]),
         feat_2(game_state["coins"], *game_state["self"][3]),
-        feat_3(game_state["field"], game_state["bombs"], game_state["explosion_map"], *game_state["self"][3]),
+        feat_3(game_state["field"], game_state["bombs"], game_state["explosion_map"], bomb_action_possible,
+               *game_state["self"][3]),
         feat_4(game_state["field"], game_state["bombs"], game_state["explosion_map"], *game_state["self"][3]),
         feat_5(field, bomb_fields, *game_state["self"][3]),
-        feat_6(game_state["field"], game_state["self"][2], *game_state["self"][3]),
+        feat_6(game_state["field"], bomb_action_possible, *game_state["self"][3]),
+        #feat_7(game_state["field"], *game_state["self"][3]),
+        feat_8(game_state["field"], bomb_action_possible, *game_state["self"][3])
     ))
 
     return stacked_channels.T
