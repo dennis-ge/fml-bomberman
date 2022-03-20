@@ -28,7 +28,7 @@ def get_neighbor_positions(x: int, y: int) -> List[Tuple[int, int]]:
 
 
 #  look_for_targets is copied from agent_code/rule_based_agent/callbacks.py
-def look_for_targets(free_space, start, targets, logger=None) -> Tuple[Tuple[int,int] or None, int or None]:
+def look_for_targets(free_space, start, targets, logger=None) -> Tuple[Tuple[int, int] or None, int or None]:
     """Find direction of the closest target that can be reached via free tiles.
 
     Performs a breadth-first search of the reachable free tiles until a target is encountered.
@@ -75,9 +75,7 @@ def look_for_targets(free_space, start, targets, logger=None) -> Tuple[Tuple[int
         logger.debug(f'Suitable target found at {best}')
     # Determine the first step towards the best found target tile
     current = best
-    path = []
     while True:
-        path.insert(0, current)
         if parent_dict[current] == start:  # next direction starting from start
             return current, best
         current = parent_dict[current]
@@ -119,9 +117,8 @@ def get_bomb_fields(field: np.array, bombs, explosion_map: np.array) -> List[Tup
 
 def is_crate_nearby(field: np.array, x: int, y: int) -> bool:
     neighbor_fields = get_neighbor_positions(x, y)
-    for neighbor_field_x, neighbor_field_y in neighbor_fields:
-
-        if field[neighbor_field_x][neighbor_field_y] == 1:
+    for neighbor_x, neighbor_y in neighbor_fields:
+        if field[neighbor_x, neighbor_y] == 1:
             return True
 
     return False
@@ -129,10 +126,9 @@ def is_crate_nearby(field: np.array, x: int, y: int) -> bool:
 
 def wait_is_intelligent(field: np.array, bomb_fields: List[Tuple[int, int]], x: int, y: int) -> bool:
     """
-    Checks if waiting is intelligent in the current position. It is intelligent when
-    - any other action might end up in dead (moving into bomb radius or explosion map)
-
-    TODO bug: if there is no escape possible, wait is an intelligent action
+    Checks if waiting is intelligent in the current position. It is intelligent when any other action
+    might end up in dead (moving into bomb radius or explosion map)
+    When the agent is in the bomb radius and there is no neighbor field is safe, wait is not an intelligent action
     """
     if len(bomb_fields) == 0:
         return False
@@ -143,47 +139,29 @@ def wait_is_intelligent(field: np.array, bomb_fields: List[Tuple[int, int]], x: 
         if neighbor_field in safe_fields:
             return False
 
+    if (x, y) in bomb_fields:
+        return False
+
     return True
 
-def wait_is_intelligent_alternative(field: np.array, bombs: List[Tuple[Tuple[int, int], int]], explosion_map: np.array, x: int,
-                        y: int) -> bool:
-    radius = get_blast_radius(field, bombs)
-    if len(radius) == 0:
+
+def wait_is_intelligent_alternative(field: np.array, bomb_fields: List[Tuple[int, int]], x: int, y: int) -> bool:
+    if len(bomb_fields) == 0:
         return False
 
     reachable_free_fields = give_reachable_free_fields(field, x, y, [])
 
-    safe_fields = [(x, y) for (x, y) in reachable_free_fields if (x, y) not in radius and explosion_map[x, y] == 0]
+    safe_fields = [(x, y) for (x, y) in reachable_free_fields if (x, y) not in bomb_fields]
 
     neighbor_fields = get_neighbor_positions(x, y)
     for neighbor_field in neighbor_fields:
         if neighbor_field in safe_fields:
             return False
 
-    #TODO: check for bug when staying on bomb and return wait as intelligent
-    return True
-
-
-def bomb_is_intelligent(field: np.array, bomb_action_available: bool, bomb_fields: List[Tuple[int, int]], x, y) -> bool:
-    """
-    Checks if a bomb is intelligent in the current position. It is intelligent when
-    - bomb action is available
-    - agent can escape from the blast radius
-    - agent destroys anything of relevance (crate, TODO opponent)
-    # TODO function necessary?
-    """
-    if not bomb_action_available:
+    if (x, y) in bomb_fields:
         return False
 
-    if escape_possible(field, bomb_fields, x, y):
-        radius = get_blast_radius(field, [((x, y), 0)])
-        crates = [(x, y) for x, y in np.ndindex(field.shape) if (field[x, y] == 1)]
-
-        for bomb_rad in radius:
-            if bomb_rad in crates:
-                return True
-
-    return False
+    return True
 
 
 def escape_possible(field: np.array, bomb_fields: List[Tuple[int, int]], x: int, y: int) -> bool:
@@ -201,6 +179,21 @@ def escape_possible(field: np.array, bomb_fields: List[Tuple[int, int]], x: int,
 
     return min_dist <= BOMB_TIMER
 
+
+def escape_possible_alternative(field: np.array, x: int, y: int) -> bool:
+    radius = get_blast_radius(field, [((x, y), 0)])
+
+    reachable_free_fields = give_reachable_free_fields(field, x, y, [])
+
+    safe_fields = [(x, y) for (x, y) in reachable_free_fields if (x, y) not in radius]
+
+    if len(safe_fields) > 0:
+        min_dist = np.sum(np.abs(np.subtract(safe_fields, (x, y))), axis=1).min()
+        return min_dist <= BOMB_TIMER
+    else:
+        return False
+
+
 def give_reachable_free_fields(field: np.array, x: int, y: int, current_free_fields: List[Tuple[int, int]]):
     # list with reachable free fields
     all_free_fields = field == 0
@@ -217,4 +210,3 @@ def give_reachable_free_fields(field: np.array, x: int, y: int, current_free_fie
 
     # remove duplicates
     return [t for t in (set(tuple(i) for i in reachable_free_fields))]
-

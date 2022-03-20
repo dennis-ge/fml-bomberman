@@ -39,10 +39,6 @@ def unique_id(chars=string.ascii_uppercase + string.digits, N=10):
     return ''.join(random.choice(chars) for _ in range(N))
 
 
-def decay():
-    os.environ["POLICY"] = "decay_greedy"
-
-
 def create_match_name(agents: str):
     return f"{unique_id()}-{'-vs-'.join(agents.split(' '))}"
 
@@ -53,8 +49,8 @@ EnvVariables = namedtuple("EnvironmentalVariables", ["policy", "model_name", "n_
 def set_env(env: EnvVariables):
     os.environ["POLICY"] = env.policy
     os.environ["MODEL_NAME"] = env.model_name
-    os.environ["N_ROUNDS"] = env.n_rounds
-    os.environ["GAMMA"] = env.gamma
+    os.environ["N_ROUNDS"] = f"{env.n_rounds}"
+    os.environ["GAMMA"] = f"{env.gamma}"
 
 
 #
@@ -79,25 +75,27 @@ def play_iteration(iteration: GameIteration, env: EnvVariables):
     game_args.extend(["--match-name", iteration.match_name])
     game_args.extend(["--save-stats", iteration.save_stats])
     game_args.extend(["--train", str(len(iteration.agents.split(" ")))])
+
     set_env(env)
     play(game_args)
 
 
-def play_game(env: EnvVariables, scenario: str, n_rounds: int, all_agents: List[str], model_name):
+def play_game(env: EnvVariables, scenario: str, n_rounds: int, all_agents: List[str]):
     """
     play x iterations of the game with the given settings
     """
+
     def execute(**kwargs):
+        # envs = *env
         logger.info("Executing iteration", extra=kwargs)
         it = GameIteration(**kwargs)
         play_iteration(it, env)
 
     for agent in all_agents:
         mn = create_match_name(agent)
-        execute(agents=agent, match_name=mn,
-                n_rounds=n_rounds, scenario=scenario, save_stats=f"results/{TIMESTAMP}-{mn}.json",
+        execute(agents=agent, match_name=mn, n_rounds=n_rounds, scenario=scenario, save_stats=f"results/{TIMESTAMP}-{mn}.json",
                 log_dir=os.path.dirname(os.path.abspath(__file__)) + "/logs", seed=False)
-        shutil.copy2(f'dump/{model_name}', f'agent_code/{agent}/models/{model_name}')
+        shutil.copy2(f'dump/{env.model_name}', f'agent_code/{agent}/models/{env.model_name}')
 
 
 #
@@ -105,13 +103,19 @@ def play_game(env: EnvVariables, scenario: str, n_rounds: int, all_agents: List[
 #
 def main(argv=None):
     parser = ArgumentParser()
-    parser.add_argument("--my-agent", type=str, help="Play agent of name ... against three rule_based_agents")
+    parser.add_argument("--rounds", type=int, default=500)
 
-    model_name = "task1-trained.pt"
-    n_rounds=1000
-    env = EnvVariables(policy="epsilon_greedy", model_name=model_name, gamma="0.8", n_rounds=f"{n_rounds}")
+    args = parser.parse_args(argv)
+    n_rounds = args.rounds
+    envs = [
+        EnvVariables(policy="epsilon_greedy", model_name="task1-trained.pt", gamma=0.8, n_rounds=n_rounds),
+        # EnvVariables(policy="decay_greedy", model_name="task1-decay-trained.pt", gamma=0.8, n_rounds=n_rounds),
+    ]
+
+    # env = EnvVariables(policy="epsilon_greedy", model_name=model_name, gamma="0.8", n_rounds=f"{n_rounds}")
     # all_agents = ["task1 task1_double_q", "task1", "task1_double_q"]
-    play_game(env=env, scenario="classic", n_rounds=n_rounds, all_agents=["task1"], model_name=model_name)
+    for env in envs:
+        play_game(env=env, scenario="classic", n_rounds=n_rounds, all_agents=["task1"])
 
 
 if __name__ == "__main__":

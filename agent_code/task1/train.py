@@ -48,15 +48,14 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
             else:
                 custom_events.append(MOVED_AWAY_FROM_COIN)
 
-        bomb_fields = get_bomb_fields(old_game_state["field"], old_game_state["bombs"], old_game_state["explosion_map"])
-        # Feature 3
-        # if old_game_state["self"][2] and not new_game_state["self"][2]:  # Action was bomb
-        #     if bomb_is_intelligent(old_game_state["field"], old_game_state["self"][2], bomb_fields, *old_game_state["self"][3]):
-        #         custom_events.append(BOMB_ACTION_WAS_INTELLIGENT)
-        #     else:
-        #         custom_events.append(BOMB_ACTION_WAS_NOT_INTELLIGENT)
+        # Feature 2
+        if len(old_game_state["coins"]) > 0 and 1 in feat_2(old_game_state["coins"], *old_game_state["self"][3]):
+            if old_game_state["self"][1] == new_game_state["self"][1]:
+                custom_events.append(DID_NOT_COLLECT_COIN)
 
-        # if old_game_state["self"][3] == new_game_state["self"][3] and old_game_state["self"][3] not in bomb_fields:  # Action was wait
+        bomb_fields = get_bomb_fields(old_game_state["field"], old_game_state["bombs"], old_game_state["explosion_map"])
+
+        # if old_game_state["self"][3] == new_game_state["self"][3]:  # Action was wait
         #     # second if statement ensures that we don't say wait is intelligent when there is no escape way of a bomb
         #     if wait_is_intelligent(old_game_state["field"], bomb_fields, *old_game_state["self"][3]):
         #         custom_events.append(WAIT_ACTION_IS_INTELLIGENT)
@@ -70,12 +69,12 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
 
         # Feature 5
         if len(old_game_state["bombs"]) > 0:
-            if moved_towards_bomb_fields(old_game_state, new_game_state):
-                custom_events.append(MOVED_TOWARDS_BOMB_FIELDS)
-            else:
+            if stayed_out_of_bomb_fields(old_game_state, new_game_state):
                 custom_events.append(MOVED_AWAY_FROM_BOMB_FIELDS)
+            else:
+                custom_events.append(MOVED_TOWARDS_BOMB_FIELDS)
 
-        # Feature 6
+        # Feature 6 Placed bomb next to crate
         if 1 in feat_6(old_game_state["field"], bomb_fields, old_game_state["self"][2], *old_game_state["self"][3]):
             if new_game_state["self"][2]:
                 custom_events.append(PLACED_BOMB_NEXT_TO_CRATE)
@@ -173,7 +172,7 @@ def moved_out_of_blast_radius(old_state, new_state):
     return (expected_new_x, expected_new_y) == (actual_new_x, actual_new_y)
 
 
-def moved_towards_bomb_fields(old_state, new_state):
+def stayed_out_of_bomb_fields(old_state, new_state):
     """
     Feature 5: Checks whether the agent moved towards an explosion or bomb that is about to explode.
     """

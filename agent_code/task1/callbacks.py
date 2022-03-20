@@ -47,12 +47,12 @@ def act(self, game_state: dict) -> str:
     """
     start = timer()
 
-    # if self.train and random.random() < EPSILON:
-    #     rand_action = np.random.choice(ACTIONS, p=[.22, .22, .22, .22, .12])
-    #     self.logger.debug(f"Chosen the following action purely at random: {rand_action}")
-    #     return rand_action
-
     self.logger.debug(f"--- Choosing an action for step {game_state['step']} at position {game_state['self'][3]}")
+
+    if self.train and np.random.random() < EPSILON:
+        rand_action = np.random.choice(ACTIONS, p=[.167, .167, .167, .167, .166, .166])
+        self.logger.debug(f"Chosen the following action purely at random: {rand_action}")
+        return rand_action
 
     # get best action based on q_values
     features = state_to_features(game_state)

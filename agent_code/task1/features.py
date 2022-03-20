@@ -1,7 +1,3 @@
-from random import shuffle
-
-import numpy as np
-
 from agent_code.task1.agent_settings import *
 from agent_code.task1.game_info import *
 
@@ -104,10 +100,10 @@ def feat_3(field: np.array, bomb_fields: List[Tuple[int, int]], bomb_action_poss
         if action == "WAIT" and not wait_is_intelligent(field, bomb_fields, x, y):
             continue
 
-        if action == "BOMB" and not escape_possible(field, x, y):
+        if action == "BOMB" and not bomb_action_possible:
             continue
 
-        if action == "BOMB" and not bomb_action_possible:
+        if action == "BOMB" and not escape_possible(field, bomb_fields, x, y):
             continue
 
         feature[idx] = 1
@@ -117,7 +113,8 @@ def feat_3(field: np.array, bomb_fields: List[Tuple[int, int]], bomb_action_poss
 
 def feat_4(field: np.array, bomb_fields: List[Tuple[int, int]], x: int, y: int) -> np.array:
     """
-    Positive: Agent stays/moves out of the blast radius (and does not move into explosion radius)
+    Agent moves out of the blast radius (and does not move into other)
+    TODO there are maybe multiple correct directions
     """
     feature = np.zeros(len(ACTIONS))
 
@@ -136,44 +133,34 @@ def feat_4(field: np.array, bomb_fields: List[Tuple[int, int]], x: int, y: int) 
             new_x, new_y = get_new_position(action, x, y)
             if (new_x, new_y) == best_direction:
                 feature[idx] = 1
+                break
 
     return feature
 
 
 def feat_5(fields: np.array, bomb_fields: List[Tuple[int, int]], x: int, y: int) -> np.array:
     """
-    Negative: Agent moves towards bomb/explosion
+    Agent stays out of bomb/explosion
     """
-    feature = np.zeros(len(ACTIONS))  # TODO: only bombs that are next to the agent
+    feature = np.ones(len(ACTIONS))  # TODO: only bombs that are next to the agent
 
     if len(bomb_fields) > 0:
         free_space = fields == 0
         best_direction, _ = look_for_targets(free_space, (x, y), bomb_fields)
 
         for idx, action in enumerate(ACTIONS):
+            if action == "BOMB":
+                feature[idx] = 0
+
             new_x, new_y = get_new_position(action, x, y)
 
             if (new_x, new_y) == best_direction:
-                feature[idx] = 1
+                feature[idx] = 0
 
     # set bomb and wait to zero, since only real moves should be evaluated
     feature[ACTIONS.index("BOMB")] = 0
     feature[ACTIONS.index("WAIT")] = 0
     return feature
-
-
-def escape_possible(field: np.array, x: int, y: int) -> bool:
-    radius = get_blast_radius(field, [((x, y), 0)])
-
-    reachable_free_fields = give_reachable_free_fields(field, x, y, [])
-
-    safe_fields = [(x, y) for (x, y) in reachable_free_fields if (x, y) not in radius]
-
-    if len(safe_fields) > 0:
-        min_dist = np.sum(np.abs(np.subtract(safe_fields, (x, y))), axis=1).min()
-        return min_dist <= BOMB_TIMER
-    else:
-        return False
 
 
 def feat_6(field: np.array, bomb_fields: List[Tuple[int, int]], bomb_action_possible: bool, x: int, y: int) -> np.array:
@@ -210,7 +197,7 @@ def feat_7(field: np.array, bomb_action_possible: bool, x: int, y: int) -> np.ar
 
     if crates:
         for idx, action in enumerate(ACTIONS):
-            if action == "WAIT":
+            if action == "BOMB":
                 continue
 
             new_x, new_y = get_new_position(action, x, y)
@@ -219,7 +206,6 @@ def feat_7(field: np.array, bomb_action_possible: bool, x: int, y: int) -> np.ar
             if action == "WAIT" or action == "BOMB":
                 feature[idx] = 0
     return feature
-
 
 
 def feat_8(field: np.array, bomb_action_possible: bool, x: int, y: int) -> np.array:
@@ -243,9 +229,17 @@ def feat_8(field: np.array, bomb_action_possible: bool, x: int, y: int) -> np.ar
               (field[x, y] == 1)]
 
     for crate in crates:
-        if crate in radius and escape_possible(field, x, y):
+        if crate in radius and escape_possible_alternative(field, x, y):
             feature[ACTIONS.index("BOMB")] = 1
     return feature
 
+
 # TODO: negative reward for setting bombs that cannot destroy any create or kill an oponnent
 # TODO: add feature for entering/not entering blast radius
+
+def feat_10(field: np.array, x: int, y: int) -> np.array:
+    """
+    Agent places bomb next to opponent if he can escape
+    """
+    feature = np.zeros(len(ACTIONS))
+    return feature

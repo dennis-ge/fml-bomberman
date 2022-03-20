@@ -46,6 +46,8 @@ RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 # Feature 1
 MOVED_TOWARDS_COIN = "MOVED_TOWARDS_COIN"
 MOVED_AWAY_FROM_COIN = "MOVED_AWAY_FROM_COIN"
+# Feature 2
+DID_NOT_COLLECT_COIN = "DID_NOT_COLLECT_COIN"
 # Feature 3
 BOMB_ACTION_WAS_INTELLIGENT = "BOMB_ACTION_WAS_INTELLIGENT"
 BOMB_ACTION_WAS_NOT_INTELLIGENT = "BOMB_ACTION_WAS_NOT_INTELLIGENT"
@@ -72,8 +74,7 @@ REWARDS = {
     e.BOMB_EXPLODED: 2,  # Own bomb dropped earlier on has exploded.
     e.CRATE_DESTROYED: 5,  # A crate was destroyed by own bomb.
     PLACED_BOMB_NEXT_TO_CRATE: 5,
-    BOMB_ACTION_WAS_INTELLIGENT: 5,
-    e.BOMB_DROPPED: 5,
+    e.BOMB_DROPPED: 10,
     e.COIN_FOUND: 10,  # A coin has been revealed by own bomb.
     MOVED_AWAY_FROM_BOMB_FIELDS: 10,
     MOVED_TOWARDS_COIN: 15,
@@ -88,9 +89,9 @@ REWARDS = {
     e.MOVED_LEFT: -1,
     MOVED_AWAY_FROM_CRATE: -2,
     DID_NOT_PLACED_BOMB_NEXT_TO_CRATE: -10,
-    BOMB_ACTION_WAS_NOT_INTELLIGENT: -10,
+    DID_NOT_COLLECT_COIN: -25,
     MOVED_AWAY_FROM_COIN: -20,
-    MOVED_TOWARDS_BOMB_FIELDS: -20,
+    MOVED_TOWARDS_BOMB_FIELDS: -45,
     e.WAITED: -20,
     e.GOT_KILLED: -50,
     e.INVALID_ACTION: -50,  # Picked a non-existent action or one that couldn’t be executed.
