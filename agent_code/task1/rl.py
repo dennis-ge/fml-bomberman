@@ -1,5 +1,4 @@
-import logging
-
+from agent_code.task1.agent_settings import *
 from agent_code.task1.features import *
 
 
@@ -74,4 +73,3 @@ def td_update(model: np.array, t: Transition) -> np.array:
 
     updated_model = model + updated_weights
     return updated_model
-
