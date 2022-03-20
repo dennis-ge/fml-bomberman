@@ -32,6 +32,7 @@ def state_to_features(game_state: dict) -> np.array:
         feat_4(field, bomb_fields, agent_x, agent_y),
         feat_5(field, bomb_fields, agent_x, agent_y),
         feat_6(field, bomb_fields, bomb_action_possible, agent_x, agent_y),
+        feat_9(field, bomb_fields, agent_x, agent_y)
         # feat_7(field, bomb_action_possible, agent_x, agent_y),
     ))
 
@@ -140,16 +141,13 @@ def feat_5(fields: np.array, bomb_fields: List[Tuple[int, int]], x: int, y: int)
     """
     Agent stays out of bomb/explosion
     """
-    feature = np.ones(len(ACTIONS))  # TODO: only bombs that are next to the agent
-
+    # TODO: only bombs that are next to the agent
+    feature = np.ones(len(ACTIONS))
     if len(bomb_fields) > 0:
         free_space = fields == 0
         best_direction, _ = look_for_targets(free_space, (x, y), bomb_fields)
 
         for idx, action in enumerate(ACTIONS):
-            if action == "BOMB":
-                feature[idx] = 0
-
             new_x, new_y = get_new_position(action, x, y)
 
             if (new_x, new_y) == best_direction:
@@ -206,8 +204,60 @@ def feat_7(field: np.array, bomb_action_possible: bool, x: int, y: int) -> np.ar
     return feature
 
 
+def feat_8(field: np.array, bomb_action_possible: bool, x: int, y: int) -> np.array:
+    """
+    Agent places bomb that is useless
+
+    1. check if agent can place bomb
+    2. calculate bomb radius
+    3. check if create gets destroyed by bomb
+    4. TODO check if opponents can be destroyed
+    """
+
+    feature = np.zeros(len(ACTIONS))
+
+    if not bomb_action_possible:
+        return feature
+
+    radius = get_blast_radius(field, [((x, y), 0)])
+
+    crates = [(x, y) for x, y in np.ndindex(field.shape) if
+              (field[x, y] == 1)]
+
+    for crate in crates:
+        if crate in radius and escape_possible_alternative(field, x, y):
+            feature[ACTIONS.index("BOMB")] = 1
+    return feature
+
+def feat_9(field: np.array, bomb_fields: List[Tuple[int, int]], x: int, y: int) -> np.array:
+    """
+    After the next move, the agent does not stay in a bomb field
+    1. Get current position of agent
+    2. Check if bomb fields are present: if not return ones for all actions
+    3. Check if agent is currently in bomb radius, if not check if the next move will get him into one
+    """
+    feature = np.zeros(len(ACTIONS))
+
+    if len(bomb_fields) == 0:
+        #TODO: try out return equals 1
+        return feature
+
+    if (x, y) not in bomb_fields:
+        for idx, action in enumerate(ACTIONS):
+            new_x, new_y = get_new_position(action, x, y)
+
+            if field[new_x, new_y] == -1 or field[new_x, new_y] == 1:  # moving into wall or crate
+                continue
+
+            if action == "BOMB":
+                continue
+
+            if (new_x, new_y) not in bomb_fields:
+                feature[idx] = 1
+
+    return feature
+
 # TODO: negative reward for setting bombs that cannot destroy any create or kill an oponnent
-# TODO: add feature for entering/not entering blast radius
 
 def feat_10(field: np.array, x: int, y: int) -> np.array:
     """

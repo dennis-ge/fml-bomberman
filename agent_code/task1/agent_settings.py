@@ -18,7 +18,7 @@ ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 #
 # ML/Hyperparameter
 #
-NUMBER_OF_FEATURES = 7
+NUMBER_OF_FEATURES = 8
 
 GREEDY_POLICY_NAME = 'greedy'
 EPSILON_GREEDY_POLICY_NAME = 'epsilon_greedy'
@@ -34,7 +34,8 @@ EPSILON_END = float(os.environ.get("EPS_MIN", 0.05))
 EPSILON_DECAY = float(os.environ.get("EPS_DECAY", 0.9994))
 
 LEARNING_RATE = float(os.environ.get("ALPHA", 0.05))  # alpha learning rate
-DISCOUNT_FACTOR = float(os.environ.get("GAMMA", 0.80))  # gamma discount factor
+DISCOUNT_FACTOR = float(os.environ.get("GAMMA", 0.99))  # gamma discount factor
+
 BIAS = float(os.environ.get("BIAS", 0.1))
 
 TRANSITION_HISTORY_SIZE = 3  # keep only ... last transitions
@@ -65,7 +66,9 @@ DID_NOT_PLACED_BOMB_NEXT_TO_CRATE = "DID_NOT_PLACED_BOMB_NEXT_TO_CRATE"
 # Feature 7
 MOVED_TOWARDS_CRATE = "MOVED_TOWARDS_CRATE"
 MOVED_AWAY_FROM_CRATE = "MOVED_AWAY_FROM_CRATE"
-
+# Feature 9
+STAYED_OUT_OF_BOMB_RADIUS = "STAYED_OUT_OF_BOMB_RADIUS"
+MOVED_INTO_BOMB_RADIUS = "MOVED_INTO_BOMB_RADIUS"
 REWARDS = {
     # Positive
     e.OPPONENT_ELIMINATED: 0,
@@ -80,6 +83,7 @@ REWARDS = {
     MOVED_TOWARDS_COIN: 15,
     e.COIN_COLLECTED: 20,
     WAIT_ACTION_IS_INTELLIGENT: 20,  # contrary to WAITED
+    STAYED_OUT_OF_BOMB_RADIUS: 30,
     MOVED_OUT_OF_BLAST_RADIUS: 40,
     e.SURVIVED_ROUND: 50,
     # Negative
@@ -92,6 +96,7 @@ REWARDS = {
     DID_NOT_COLLECT_COIN: -25,
     MOVED_AWAY_FROM_COIN: -20,
     MOVED_TOWARDS_BOMB_FIELDS: -55,
+    MOVED_INTO_BOMB_RADIUS: -60,
     e.WAITED: -20,
     e.GOT_KILLED: -50,
     e.INVALID_ACTION: -50,  # Picked a non-existent action or one that couldn’t be executed.

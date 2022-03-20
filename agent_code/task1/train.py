@@ -72,19 +72,26 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
             if stayed_out_of_bomb_fields(old_game_state, new_game_state):
                 custom_events.append(MOVED_AWAY_FROM_BOMB_FIELDS)
             else:
-                custom_events.append(MOVED_TOWARDS_BOMB_FIELDS)
+                if self_action != "BOMB":
+                    custom_events.append(MOVED_TOWARDS_BOMB_FIELDS)
 
         # Feature 6 Placed bomb next to crate
         if 1 in feat_6(old_game_state["field"], bomb_fields, old_game_state["self"][2], *old_game_state["self"][3]):
             if self_action == "BOMB":
-                custom_events.append(DID_NOT_PLACED_BOMB_NEXT_TO_CRATE)
-            else:
                 custom_events.append(PLACED_BOMB_NEXT_TO_CRATE)
-
-        # Feature 7
+            else:
+                custom_events.append(DID_NOT_PLACED_BOMB_NEXT_TO_CRATE)
         # if 1 in old_game_state["field"]:
         #     if moved_towards_crate(old_game_state, new_game_state):
         #         custom_events.append(MOVED_TOWARDS_CRATE)
+
+        if len(old_game_state["bombs"]) > 0:
+            if stayed_out_of_bomb_radius(old_game_state, new_game_state):
+                custom_events.append(STAYED_OUT_OF_BOMB_RADIUS)
+            else:
+                feature_old = feat_9(old_game_state["field"], bomb_fields, *old_game_state["self"][3])
+                if feature_old.max() == 1:
+                    custom_events.append(MOVED_INTO_BOMB_RADIUS)
 
         events.extend(custom_events)
         self.logger.debug(f'Custom event occurred: {custom_events}')
@@ -206,3 +213,21 @@ def moved_towards_crate(old_state, new_state):
     actual_new_x, actual_new_y = new_state["self"][3]
 
     return (expected_new_x, expected_new_y) == (actual_new_x, actual_new_y)
+
+def stayed_out_of_bomb_radius(old_state, new_state):
+    """
+    Feature 9: Checks if the agent did not moved into a bomb field before he was in a safe place
+    """
+
+    bomb_fields = get_bomb_fields(old_state["field"], old_state["bombs"], old_state["explosion_map"])
+    feature_old = feat_9(old_state["field"], bomb_fields, *old_state["self"][3])
+
+    actual_new_x, actual_new_y = new_state["self"][3]
+
+    idxs = np.where(feature_old == 1)[0]  # get action indexes where agent moves stays out of bomb fields
+    for idx in idxs:
+        expected_new_x, expected_new_y = get_new_position(ACTIONS[idx], *old_state["self"][3])
+        if (expected_new_x, expected_new_y) == (actual_new_x, actual_new_y):
+            return True
+
+    return False
