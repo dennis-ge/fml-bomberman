@@ -41,35 +41,51 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     if old_game_state is not None:
         custom_events = []
 
+        # Feature 1
         if len(old_game_state["coins"]) > 0:
             if moved_towards_coin(old_game_state, new_game_state):
                 custom_events.append(MOVED_TOWARDS_COIN)
             else:
                 custom_events.append(MOVED_AWAY_FROM_COIN)
 
+        bomb_fields = get_bomb_fields(old_game_state["field"], old_game_state["bombs"], old_game_state["explosion_map"])
+        # Feature 3
+        # if old_game_state["self"][2] and not new_game_state["self"][2]:  # Action was bomb
+        #     if bomb_is_intelligent(old_game_state["field"], old_game_state["self"][2], bomb_fields, *old_game_state["self"][3]):
+        #         custom_events.append(BOMB_ACTION_WAS_INTELLIGENT)
+        #     else:
+        #         custom_events.append(BOMB_ACTION_WAS_NOT_INTELLIGENT)
+
+        # if old_game_state["self"][3] == new_game_state["self"][3] and old_game_state["self"][3] not in bomb_fields:  # Action was wait
+        #     # second if statement ensures that we don't say wait is intelligent when there is no escape way of a bomb
+        #     if wait_is_intelligent(old_game_state["field"], bomb_fields, *old_game_state["self"][3]):
+        #         custom_events.append(WAIT_ACTION_IS_INTELLIGENT)
+
+        # Feature 4
         if old_game_state["self"][3] in get_blast_radius(old_game_state["field"], old_game_state["bombs"]):
             if moved_out_of_blast_radius(old_game_state, new_game_state):
                 custom_events.append(MOVED_OUT_OF_BLAST_RADIUS)
             else:
                 custom_events.append(STAYED_IN_BLAST_RADIUS)
 
+        # Feature 5
         if len(old_game_state["bombs"]) > 0:
             if moved_towards_bomb_fields(old_game_state, new_game_state):
                 custom_events.append(MOVED_TOWARDS_BOMB_FIELDS)
             else:
                 custom_events.append(MOVED_AWAY_FROM_BOMB_FIELDS)
 
-        if 1 in feat_6(old_game_state["field"], old_game_state["self"][2], *old_game_state["self"][3]):
+        # Feature 6
+        if 1 in feat_6(old_game_state["field"], bomb_fields, old_game_state["self"][2], *old_game_state["self"][3]):
             if new_game_state["self"][2]:
                 custom_events.append(PLACED_BOMB_NEXT_TO_CRATE)
             else:
                 custom_events.append(DID_NOT_PLACED_BOMB_NEXT_TO_CRATE)
 
-        """
-        if 1 in old_game_state["field"]:
-            if moved_towards_crate(old_game_state, new_game_state):
-                custom_events.append(MOVED_TOWARDS_CRATE)
-        """
+        # Feature 7
+        # if 1 in old_game_state["field"]:
+        #     if moved_towards_crate(old_game_state, new_game_state):
+        #         custom_events.append(MOVED_TOWARDS_CRATE)
 
         events.extend(custom_events)
         self.logger.debug(f'Custom event occurred: {custom_events}')
@@ -131,7 +147,6 @@ def moved_towards_coin(old_state, new_state):
     """
     Feature 1: Checks whether the agent moved towards a coin.
     """
-
     feature_old = feat_1(old_state["field"], old_state["coins"], *old_state["self"][3])
 
     idx = np.where(feature_old == 1)[0][0]
@@ -143,7 +158,12 @@ def moved_towards_coin(old_state, new_state):
 
 
 def moved_out_of_blast_radius(old_state, new_state):
-    feature_old = feat_4(old_state["field"], old_state["bombs"], old_state["explosion_map"], *old_state["self"][3])
+    """
+    Feature 4: Checks whether the agent moved out of the blast radius
+    Note: The agent is in the blast radius in the old state.
+    """
+    bomb_fields = get_bomb_fields(old_state["field"], old_state["bombs"], old_state["explosion_map"])
+    feature_old = feat_4(old_state["field"], bomb_fields, *old_state["self"][3])
 
     idx = np.where(feature_old == 1)[0][0]
     expected_new_x, expected_new_y = get_new_position(ACTIONS[idx], *old_state["self"][3])
@@ -154,15 +174,14 @@ def moved_out_of_blast_radius(old_state, new_state):
 
 
 def moved_towards_bomb_fields(old_state, new_state):
-    blast_radius = get_blast_radius(old_state["field"], old_state["bombs"])
-    bomb_fields = [(x, y) for x, y in np.ndindex( old_state["explosion_map"].shape) if ( old_state["explosion_map"][x, y] != 0) or (x, y) in blast_radius]
-
-    feature_old = feat_5(old_state["field"],bomb_fields, *old_state["self"][3])
+    """
+    Feature 5: Checks whether the agent moved towards an explosion or bomb that is about to explode.
+    """
+    bomb_fields = get_bomb_fields(old_state["field"], old_state["bombs"], old_state["explosion_map"])
+    feature_old = feat_5(old_state["field"], bomb_fields, *old_state["self"][3])
 
     actual_new_x, actual_new_y = new_state["self"][3]
-
-    idxs = np.where(feature_old == 0)[0]  # get action indexes where agent moves into bomb fields map
-
+    idxs = np.where(feature_old == 1)[0]  # get action indexes where agent moves into bomb fields
     for idx in idxs:
         expected_new_x, expected_new_y = get_new_position(ACTIONS[idx], *old_state["self"][3])
         if (expected_new_x, expected_new_y) == (actual_new_x, actual_new_y):
@@ -170,11 +189,11 @@ def moved_towards_bomb_fields(old_state, new_state):
 
     return False
 
+
 def moved_towards_crate(old_state, new_state):
     """
     Feature 7: Checks whether the agent moved towards a crate.
     """
-
     feature_old = feat_7(old_state["field"], *old_state["self"][3])
 
     idx = np.where(feature_old == 1)[0][0]
