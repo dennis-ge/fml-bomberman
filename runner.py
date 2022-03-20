@@ -74,7 +74,7 @@ def play_iteration(iteration: GameIteration, env: EnvVariables):
     game_args.extend(["--seed", str(42)]) if iteration.seed else []
     game_args.extend(["--match-name", iteration.match_name])
     game_args.extend(["--save-stats", iteration.save_stats])
-    game_args.extend(["--train", str(len(iteration.agents.split(" ")))])
+    game_args.extend(["--train", str(1)])
 
     set_env(env)
     play(game_args)
@@ -95,7 +95,7 @@ def play_game(env: EnvVariables, scenario: str, n_rounds: int, all_agents: List[
         mn = create_match_name(agent)
         execute(agents=agent, match_name=mn, n_rounds=n_rounds, scenario=scenario, save_stats=f"results/{TIMESTAMP}-{mn}.json",
                 log_dir=os.path.dirname(os.path.abspath(__file__)) + "/logs", seed=False)
-        shutil.copy2(f'dump/{env.model_name}', f'agent_code/{agent}/models/{env.model_name}')
+        shutil.copy2(f'dump/{env.model_name}', f'agent_code/{agent.split(" ")[0]}/models/{env.model_name}')
 
 
 #
@@ -104,18 +104,32 @@ def play_game(env: EnvVariables, scenario: str, n_rounds: int, all_agents: List[
 def main(argv=None):
     parser = ArgumentParser()
     parser.add_argument("--rounds", type=int, default=500)
+    parser.add_argument("--o", type=str, default="")
 
     args = parser.parse_args(argv)
+
+    agents = "task1"
+    if args.o == "rule":
+        agents += " rule_based_agent rule_based_agent rule_based_agent"
+
+    if args.o == "random":
+        agents += " random_agent random_agent random_agent"
+
+    if args.o == "peaceful":
+        agents += " peaceful_agent peaceful_agent peaceful_agent"
+
+
+
     n_rounds = args.rounds
     envs = [
         EnvVariables(policy="epsilon_greedy", model_name="task1-trained.pt", gamma=0.8, n_rounds=n_rounds),
-        # EnvVariables(policy="decay_greedy", model_name="task1-decay-trained.pt", gamma=0.8, n_rounds=n_rounds),
+        #EnvVariables(policy="decay_greedy", model_name="task1-decay-trained.pt", gamma=0.8, n_rounds=n_rounds),
     ]
 
     # env = EnvVariables(policy="epsilon_greedy", model_name=model_name, gamma="0.8", n_rounds=f"{n_rounds}")
     # all_agents = ["task1 task1_double_q", "task1", "task1_double_q"]
     for env in envs:
-        play_game(env=env, scenario="classic", n_rounds=n_rounds, all_agents=["task1"])
+        play_game(env=env, scenario="classic", n_rounds=n_rounds, all_agents=[agents])
 
 
 if __name__ == "__main__":

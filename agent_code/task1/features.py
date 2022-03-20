@@ -1,7 +1,7 @@
 from agent_code.task1.agent_settings import *
 from agent_code.task1.game_info import *
 
-
+from scipy.spatial.distance import cityblock
 def state_to_features(game_state: dict) -> np.array:
     """
     Converts the game state to a feature vector.
@@ -143,9 +143,17 @@ def feat_5(fields: np.array, bomb_fields: List[Tuple[int, int]], x: int, y: int)
     """
     # TODO: only bombs that are next to the agent
     feature = np.ones(len(ACTIONS))
-    if len(bomb_fields) > 0:
+
+    bomb_fields_nearby = []
+    for bomb_x, bomb_y in bomb_fields:
+        distance = cityblock([x,y],[bomb_x, bomb_y])
+        if distance < 6:
+            bomb_fields_nearby.append((bomb_x, bomb_y))
+
+
+    if len(bomb_fields_nearby) > 0:
         free_space = fields == 0
-        best_direction, _ = look_for_targets(free_space, (x, y), bomb_fields)
+        best_direction, _ = look_for_targets(free_space, (x, y), bomb_fields_nearby)
 
         for idx, action in enumerate(ACTIONS):
             new_x, new_y = get_new_position(action, x, y)
@@ -265,3 +273,10 @@ def feat_10(field: np.array, x: int, y: int) -> np.array:
     """
     feature = np.zeros(len(ACTIONS))
     return feature
+
+
+# Reward for moving towards the nearest opponent: under certain conditions
+# Use transitions of the other agents: think about features
+# Reward for setting bombs that can kill an opponent
+# Reward bombs that are leading for a "safe" dead of an agent
+# dead end feature

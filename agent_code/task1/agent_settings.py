@@ -28,12 +28,12 @@ policy_name = os.environ.get("POLICY", GREEDY_POLICY_NAME)
 
 
 NUMBER_OF_ROUNDS = int(os.getenv("N_ROUNDS", 100))
-EPSILON = float(os.environ.get("EPS", 0.3))  # eps for epsilon greedy policy
+EPSILON = float(os.environ.get("EPS", 0.4))  # eps for epsilon greedy policy
 EPSILON_START = float(os.environ.get("EPS_START", 1))
 EPSILON_END = float(os.environ.get("EPS_MIN", 0.05))
 EPSILON_DECAY = float(os.environ.get("EPS_DECAY", 0.9994))
 
-LEARNING_RATE = float(os.environ.get("ALPHA", 0.05))  # alpha learning rate
+LEARNING_RATE = float(os.environ.get("ALPHA", 0.025))  # alpha learning rate
 DISCOUNT_FACTOR = float(os.environ.get("GAMMA", 0.99))  # gamma discount factor
 
 BIAS = float(os.environ.get("BIAS", 0.1))
