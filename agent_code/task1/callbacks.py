@@ -36,6 +36,14 @@ def setup(self):
             self.model = pickle.load(file)
 
 
+def beautify_features(features: np.array, model: np.array):
+    str = f"Model {model}\n"
+    str += "Feature  " + "\t ".join([f'{i}' for i in range(len(features[0]))]) + "\n"
+    for i in range(len(features)):
+        str += f"{ACTIONS[i]:6}: {features[i]}\n"
+    return str[:-1]
+
+
 def act(self, game_state: dict) -> str:
     """
     Your agent should parse the input, think, and take a decision.
@@ -57,7 +65,8 @@ def act(self, game_state: dict) -> str:
     # get best action based on q_values
     features = state_to_features(game_state)
     _, best_actions = max_q(features, self.model)
-    self.logger.debug(f"Features: {[list(item) for item in features]}, Model: {self.model}")
+
+    self.logger.debug(beautify_features(features, self.model))
 
     if policy_name == DECAY_GREEDY_POLICY_NAME:
         action, self.prev_eps = self.policy(ACTIONS[np.random.choice(best_actions)], self.episode, self.prev_eps)

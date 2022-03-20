@@ -28,12 +28,12 @@ policy_name = os.environ.get("POLICY", GREEDY_POLICY_NAME)
 
 
 NUMBER_OF_ROUNDS = int(os.getenv("N_ROUNDS", 100))
-EPSILON = float(os.environ.get("EPS", 0.15))  # eps for epsilon greedy policy
+EPSILON = float(os.environ.get("EPS", 0.3))  # eps for epsilon greedy policy
 EPSILON_START = float(os.environ.get("EPS_START", 1))
 EPSILON_END = float(os.environ.get("EPS_MIN", 0.05))
 EPSILON_DECAY = float(os.environ.get("EPS_DECAY", 0.9994))
 
-LEARNING_RATE = float(os.environ.get("ALPHA", 0.1))  # alpha learning rate
+LEARNING_RATE = float(os.environ.get("ALPHA", 0.05))  # alpha learning rate
 DISCOUNT_FACTOR = float(os.environ.get("GAMMA", 0.80))  # gamma discount factor
 BIAS = float(os.environ.get("BIAS", 0.1))
 
@@ -76,7 +76,7 @@ REWARDS = {
     PLACED_BOMB_NEXT_TO_CRATE: 5,
     e.BOMB_DROPPED: 10,
     e.COIN_FOUND: 10,  # A coin has been revealed by own bomb.
-    MOVED_AWAY_FROM_BOMB_FIELDS: 10,
+    MOVED_AWAY_FROM_BOMB_FIELDS: 30,
     MOVED_TOWARDS_COIN: 15,
     e.COIN_COLLECTED: 20,
     WAIT_ACTION_IS_INTELLIGENT: 20,  # contrary to WAITED
@@ -88,10 +88,10 @@ REWARDS = {
     e.MOVED_RIGHT: -1,
     e.MOVED_LEFT: -1,
     MOVED_AWAY_FROM_CRATE: -2,
-    DID_NOT_PLACED_BOMB_NEXT_TO_CRATE: -10,
+    DID_NOT_PLACED_BOMB_NEXT_TO_CRATE: -40,
     DID_NOT_COLLECT_COIN: -25,
     MOVED_AWAY_FROM_COIN: -20,
-    MOVED_TOWARDS_BOMB_FIELDS: -45,
+    MOVED_TOWARDS_BOMB_FIELDS: -55,
     e.WAITED: -20,
     e.GOT_KILLED: -50,
     e.INVALID_ACTION: -50,  # Picked a non-existent action or one that couldn’t be executed.

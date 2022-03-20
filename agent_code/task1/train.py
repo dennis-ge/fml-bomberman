@@ -49,9 +49,9 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
                 custom_events.append(MOVED_AWAY_FROM_COIN)
 
         # Feature 2
-        if len(old_game_state["coins"]) > 0 and 1 in feat_2(old_game_state["coins"], *old_game_state["self"][3]):
-            if old_game_state["self"][1] == new_game_state["self"][1]:
-                custom_events.append(DID_NOT_COLLECT_COIN)
+        # if len(old_game_state["coins"]) > 0 and 1 in feat_2(old_game_state["coins"], *old_game_state["self"][3]):
+        #     if old_game_state["self"][1] == new_game_state["self"][1]:
+        #         custom_events.append(DID_NOT_COLLECT_COIN)
 
         bomb_fields = get_bomb_fields(old_game_state["field"], old_game_state["bombs"], old_game_state["explosion_map"])
 
@@ -76,10 +76,10 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
 
         # Feature 6 Placed bomb next to crate
         if 1 in feat_6(old_game_state["field"], bomb_fields, old_game_state["self"][2], *old_game_state["self"][3]):
-            if new_game_state["self"][2]:
-                custom_events.append(PLACED_BOMB_NEXT_TO_CRATE)
-            else:
+            if self_action == "BOMB":
                 custom_events.append(DID_NOT_PLACED_BOMB_NEXT_TO_CRATE)
+            else:
+                custom_events.append(PLACED_BOMB_NEXT_TO_CRATE)
 
         # Feature 7
         # if 1 in old_game_state["field"]:

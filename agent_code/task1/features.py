@@ -45,19 +45,17 @@ def feat_1(field: np.array, coins: List[Tuple[int, int]], x: int, y: int) -> np.
     """
     feature = np.zeros(len(ACTIONS))
 
-    free_space = field == 0
-    best_direction, _ = look_for_targets(free_space, (x, y), coins)
-
-    # take a look into look_for_targets_bug
-
     if coins:
+        free_space = field == 0
+        best_direction, _ = look_for_targets(free_space, (x, y), coins)
         for idx, action in enumerate(ACTIONS):
+            if action == "WAIT" or action == "BOMB":
+                feature[idx] = 0
 
             new_x, new_y = get_new_position(action, x, y)
             if (new_x, new_y) == best_direction:
                 feature[idx] = 1
-            if action == "WAIT" or action == "BOMB":
-                feature[idx] = 0
+
 
     return feature
 
@@ -159,7 +157,7 @@ def feat_5(fields: np.array, bomb_fields: List[Tuple[int, int]], x: int, y: int)
 
     # set bomb and wait to zero, since only real moves should be evaluated
     feature[ACTIONS.index("BOMB")] = 0
-    feature[ACTIONS.index("WAIT")] = 0
+    # feature[ACTIONS.index("WAIT")] = 0
     return feature
 
 
@@ -205,32 +203,6 @@ def feat_7(field: np.array, bomb_action_possible: bool, x: int, y: int) -> np.ar
                 feature[idx] = 1
             if action == "WAIT" or action == "BOMB":
                 feature[idx] = 0
-    return feature
-
-
-def feat_8(field: np.array, bomb_action_possible: bool, x: int, y: int) -> np.array:
-    """
-    Agent places bomb that is useless
-
-    1. check if agent can place bomb
-    2. calculate bomb radius
-    3. check if create gets destroyed by bomb
-    4. TODO check if opponents can be destroyed
-    """
-
-    feature = np.zeros(len(ACTIONS))
-
-    if not bomb_action_possible:
-        return feature
-
-    radius = get_blast_radius(field, [((x, y), 0)])
-
-    crates = [(x, y) for x, y in np.ndindex(field.shape) if
-              (field[x, y] == 1)]
-
-    for crate in crates:
-        if crate in radius and escape_possible_alternative(field, x, y):
-            feature[ACTIONS.index("BOMB")] = 1
     return feature
 
 
