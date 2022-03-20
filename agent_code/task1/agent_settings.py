@@ -28,13 +28,13 @@ DECAY_GREEDY_POLICY_NAME = 'decay_greedy'
 policy_name = os.environ.get("POLICY", GREEDY_POLICY_NAME)
 
 NUMBER_OF_ROUNDS = os.getenv("N_ROUNDS", 100)
-EPSILON = os.environ.get("EPS", 0.15)  # eps for epsilon greedy policy
+EPSILON = os.environ.get("EPS", 0.3)  # eps for epsilon greedy policy
 EPSILON_START = os.environ.get("EPS_START", 1)
 EPSILON_END = os.environ.get("EPS_MIN", 0.05)
 EPSILON_DECAY = os.environ.get("EPS_DECAY", 0.9994)
 
-LEARNING_RATE = os.environ.get("ALPHA", 0.1)  # alpha learning rate
-DISCOUNT_FACTOR = os.environ.get("GAMMA", 0.80)  # gamma discount factor
+LEARNING_RATE = os.environ.get("ALPHA", 0.05)  # alpha learning rate
+DISCOUNT_FACTOR = os.environ.get("GAMMA", 0.9)  # gamma discount factor
 BIAS = os.environ.get("BIAS", 0.1)
 TRANSITION_HISTORY_SIZE = 3  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
@@ -55,20 +55,21 @@ DID_NOT_PLACED_BOMB_NEXT_TO_CRATE = "DID_NOT_PLACED_BOMB_NEXT_TO_CRATE"  # and h
 REWARDS = {
     # Positive
     e.CRATE_DESTROYED: 5,  # A crate was destroyed by own bomb.
-    e.COIN_FOUND: 10,  # A coin has been revealed by own bomb.
+    e.COIN_FOUND: 30,  # A coin has been revealed by own bomb.
     e.BOMB_DROPPED: 10,
     e.BOMB_EXPLODED: 2,  # Own bomb dropped earlier on has exploded.
-    e.COIN_COLLECTED: 20,
+    e.COIN_COLLECTED: 50,
     e.OPPONENT_ELIMINATED: 0,
     e.KILLED_OPPONENT: 0,
     e.SURVIVED_ROUND: 100,
-    MOVED_TOWARDS_COIN: 15,
+    MOVED_TOWARDS_COIN: 40,
     MOVED_OUT_OF_BLAST_RADIUS: 40,
     MOVED_AWAY_FROM_BOMB_FIELDS: 10,
-    PLACED_BOMB_NEXT_TO_CRATE: 5,
+    PLACED_BOMB_NEXT_TO_CRATE: 10,
+    MOVED_TOWARDS_CRATE: 10,
     # Negative
-    DID_NOT_PLACED_BOMB_NEXT_TO_CRATE: -10,
-    MOVED_AWAY_FROM_COIN: -20,
+    DID_NOT_PLACED_BOMB_NEXT_TO_CRATE: -20,
+    MOVED_AWAY_FROM_COIN: -65,
     STAYED_IN_BLAST_RADIUS: -80,
     MOVED_TOWARDS_BOMB_FIELDS: -20,
     MOVED_AWAY_CRATE: -10,
@@ -81,7 +82,6 @@ REWARDS = {
     e.INVALID_ACTION: -50,  # Picked a non-existent action or one that couldn’t be executed.
     e.KILLED_SELF: -100,
 }
-
 
 def get_new_position(action: str, x: int, y: int) -> Tuple[int, int]:
     switch = {

@@ -1,4 +1,5 @@
 from random import shuffle
+from pathfinding.core.grid import Grid
 
 import numpy as np
 
@@ -6,13 +7,23 @@ from agent_code.task1.agent_settings import *
 from settings import *
 
 
-def give_reachable_free_fields(free_space, x, y):
-    #list with reachable free fields
+def give_reachable_free_fields(field: np.array, x: int, y: int, current_free_fields: List[Tuple[int, int]]):
+    # list with reachable free fields
+    all_free_fields = field == 0
+    reachable_free_fields = current_free_fields
 
+    if all_free_fields[x, y] and (x, y) not in current_free_fields:
+        reachable_free_fields.append((x, y))
+        upper_free_fields = give_reachable_free_fields(field, x, y - 1, reachable_free_fields)
+        lower_free_fields = give_reachable_free_fields(field, x, y + 1, reachable_free_fields)
+        rigth_free_fields = give_reachable_free_fields(field, x + 1, y, reachable_free_fields)
+        left_free_fields = give_reachable_free_fields(field, x - 1, y, reachable_free_fields)
 
+        reachable_free_fields = reachable_free_fields + left_free_fields + rigth_free_fields + lower_free_fields + upper_free_fields
 
-    # return all free fields that the agent can reach
-    return 0
+    # remove duplicates
+    return [t for t in (set(tuple(i) for i in reachable_free_fields))]
+
 
 #  copied from rule_based_agent/callbacks.py
 def look_for_targets(free_space, start, targets, logger=None):
@@ -75,11 +86,16 @@ def feat_1(field: np.array, coins: List[Tuple[int, int]], x: int, y: int) -> np.
     free_space = field == 0
     best_direction = look_for_targets(free_space, (x, y), coins)
 
+     # take a look into look_for_targets_bug
+
     if coins:
         for idx, action in enumerate(ACTIONS):
+
             new_x, new_y = get_new_position(action, x, y)
             if (new_x, new_y) == best_direction:
                 feature[idx] = 1
+            if action == "WAIT" or action == "BOMB":
+                feature[idx] = 0
 
     return feature
 
@@ -105,6 +121,10 @@ def wait_is_intelligent(field: np.array, bombs: List[Tuple[Tuple[int, int], int]
     if len(radius) == 0:
         return False
 
+    reachable_free_fields = give_reachable_free_fields(field, x, y, [])
+
+    safe_fields_1 = [(x, y) for (x, y) in reachable_free_fields if (x, y) not in radius and explosion_map[x, y] == 0]
+
     safe_fields = [(x, y) for x, y in np.ndindex(field.shape) if
                    (field[x, y] == 0) and (x, y) not in radius and explosion_map[x, y] == 0]
     neighbor_fields = get_neighbor_positions(x, y)
@@ -112,6 +132,7 @@ def wait_is_intelligent(field: np.array, bombs: List[Tuple[Tuple[int, int], int]
         if neighbor_field in safe_fields:
             return False
 
+    #TODO: check for bug when staying on bomb and return wait as intelligent
     return True
 
 
@@ -133,7 +154,7 @@ def feat_3(field: np.array, bombs: List[Tuple[Tuple[int, int], int]], explosion_
             continue
 
         # TODO move into enemy position
-
+        # TODO check if bomb is in the current position
         if action == "WAIT":
             if not wait_is_intelligent(field, bombs, explosion_map, x, y):
                 continue
@@ -215,18 +236,22 @@ def feat_5(fields: np.array, bomb_fields: List[Tuple[int, int]], x: int, y: int)
 
         for idx, action in enumerate(ACTIONS):
             new_x, new_y = get_new_position(action, x, y)
+
             if (new_x, new_y) == best_direction:
                 feature[idx] = 0
 
+    # set bomb and wait to zero, since only real moves should be evaluated
+    feature[ACTIONS.index("BOMB")] = 0
+    feature[ACTIONS.index("WAIT")] = 0
     return feature
 
 
 def is_crate_nearby(field: np.array, x: int, y: int) -> bool:
-    crates = field == 1
 
     neighbor_fields = get_neighbor_positions(x, y)
-    for neighbor_field in neighbor_fields:
-        if neighbor_field in crates:
+    for neighbor_field_x, neighbor_field_y in neighbor_fields:
+
+        if field[neighbor_field_x][neighbor_field_y] == 1:
             return True
 
     return False
@@ -235,14 +260,15 @@ def is_crate_nearby(field: np.array, x: int, y: int) -> bool:
 def escape_possible(field: np.array, x: int, y: int) -> bool:
     radius = get_blast_radius(field, [((x, y), 0)])
 
-    #TODO: replace with reachable safe fields
-    safe_fields = [(x, y) for x, y in np.ndindex(field.shape) if
-                   (field[x, y] == 0) and (x, y) not in radius]  # TODO improve by not calculating whole game board
+    reachable_free_fields = give_reachable_free_fields(field, x, y, [])
 
-    min_dist = np.sum(np.abs(np.subtract(safe_fields, (x, y))), axis=1).min()
+    safe_fields = [(x, y) for (x, y) in reachable_free_fields if (x, y) not in radius]
 
-    return min_dist <= BOMB_TIMER
-
+    if len(safe_fields) > 0:
+        min_dist = np.sum(np.abs(np.subtract(safe_fields, (x, y))), axis=1).min()
+        return min_dist <= BOMB_TIMER
+    else:
+        return False
 
 def feat_6(field: np.array, bomb_action_possible: bool, x: int, y: int) -> np.array:
     """
@@ -264,9 +290,9 @@ def feat_6(field: np.array, bomb_action_possible: bool, x: int, y: int) -> np.ar
     return feature
 
 
-def feat_7(field: np.array, x: int, y: int) -> np.array:
+def feat_7(field: np.array, bomb_action_possible: bool, x: int, y: int) -> np.array:
     """
-    Agent moves towards crate
+    Agent moves towards crate, if he is able to place a bomb and there is no bomb in the same direction
     """
     crates = [(x, y) for x, y in np.ndindex(field.shape) if
               (field[x, y] == 1)]
@@ -276,13 +302,20 @@ def feat_7(field: np.array, x: int, y: int) -> np.array:
     free_space = field == 0
     best_direction = look_for_targets(free_space, (x, y), crates)
 
+    if not bomb_action_possible:
+        return feature
+
+    #TODO: check if there is a bomb in the same direction or if bomb action is possible
+
     if crates:
         for idx, action in enumerate(ACTIONS):
             new_x, new_y = get_new_position(action, x, y)
             if (new_x, new_y) == best_direction:
                 feature[idx] = 1
-
+            if action == "WAIT" or action == "BOMB":
+                feature[idx] = 0
     return feature
+
 
 def feat_8(field: np.array, bomb_action_possible: bool, x: int, y: int) -> np.array:
     """
@@ -293,6 +326,7 @@ def feat_8(field: np.array, bomb_action_possible: bool, x: int, y: int) -> np.ar
     3. check if create gets destroyed by bomb
     4. TODO check if opponents can be destroyed
     """
+
     feature = np.zeros(len(ACTIONS))
 
     if not bomb_action_possible:
@@ -305,11 +339,12 @@ def feat_8(field: np.array, bomb_action_possible: bool, x: int, y: int) -> np.ar
 
     for crate in crates:
         if crate in radius and escape_possible(field, x, y):
-            escape_possible(field, x, y)
             feature[ACTIONS.index("BOMB")] = 1
     return feature
 
-#TODO: negative reward for setting bombs that cannot destroy any create or kill an oponnent
+
+# TODO: negative reward for setting bombs that cannot destroy any create or kill an oponnent
+# TODO: add feature for entering/not entering blast radius
 
 def state_to_features(game_state: dict) -> np.array:
     """
@@ -344,8 +379,8 @@ def state_to_features(game_state: dict) -> np.array:
         feat_4(game_state["field"], game_state["bombs"], game_state["explosion_map"], *game_state["self"][3]),
         feat_5(field, bomb_fields, *game_state["self"][3]),
         feat_6(game_state["field"], bomb_action_possible, *game_state["self"][3]),
-        #feat_7(game_state["field"], *game_state["self"][3]),
-        feat_8(game_state["field"], bomb_action_possible, *game_state["self"][3])
+        feat_7(game_state["field"], bomb_action_possible, *game_state["self"][3]),
+        # feat_8(game_state["field"], bomb_action_possible, *game_state["self"][3])
     ))
 
     return stacked_channels.T

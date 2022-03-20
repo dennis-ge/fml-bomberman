@@ -65,11 +65,10 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
             else:
                 custom_events.append(DID_NOT_PLACED_BOMB_NEXT_TO_CRATE)
 
-        """
         if 1 in old_game_state["field"]:
             if moved_towards_crate(old_game_state, new_game_state):
                 custom_events.append(MOVED_TOWARDS_CRATE)
-        """
+
 
         events.extend(custom_events)
         self.logger.debug(f'Custom event occurred: {custom_events}')
@@ -175,7 +174,11 @@ def moved_towards_crate(old_state, new_state):
     Feature 7: Checks whether the agent moved towards a crate.
     """
 
-    feature_old = feat_7(old_state["field"], *old_state["self"][3])
+    feature_old = feat_7(old_state["field"], old_state["self"][2], *old_state["self"][3])
+
+    # check if move to crate is possible
+    if feature_old.max() == 0:
+        return False
 
     idx = np.where(feature_old == 1)[0][0]
     expected_new_x, expected_new_y = get_new_position(ACTIONS[idx], *old_state["self"][3])
