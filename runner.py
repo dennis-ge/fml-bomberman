@@ -116,6 +116,7 @@ def main(argv=None):
     parser.add_argument("--rounds", type=int, default=500)
     parser.add_argument("--agent", type=str, default="task1")
     parser.add_argument("--o", type=str, default="")
+    parser.add_argument("--s", type=str, default="classic")
 
     args = parser.parse_args(argv)
 
@@ -123,10 +124,10 @@ def main(argv=None):
 
     envs = [
         EnvVariables(policy="epsilon_greedy", model_name="task1-eps.pt", gamma=0.8, n_rounds=args.rounds, match_id=f"task1-{unique_id()}"),
-        # EnvVariables(policy="decay_greedy", model_name="task1-decay-trained.pt", gamma=0.8, n_rounds=args.rounds, match_id=f"task1-{unique_id()}"),
+        # EnvVariables(policy="decay_greedy", model_name="task1-decay-trained.pt", gamma=0.99, n_rounds=args.rounds, match_id=f"task1-{unique_id()}"),
     ]
 
-    play_game(agents=agents, scenario="classic", envs=envs)
+    play_game(agents=agents, scenario=args.s, envs=envs)
 
 
 if __name__ == "__main__":

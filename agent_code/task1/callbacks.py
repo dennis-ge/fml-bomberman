@@ -39,7 +39,7 @@ def setup(self):
 
 def beautify_features(features: np.array, model: np.array):
     str = f"Model {model}\n"
-    str += "Feature  " + "\t ".join([f'{i}' for i in range(len(features[0]))]) + "\n"
+    str += "Feature   " + "\t ".join([f'{i}' for i in range(len(features[0]))]) + "\n"
     for i in range(len(features)):
         str += f"{ACTIONS[i]:6}: {features[i]}\n"
     return str[:-1].replace("0.", " .")
@@ -66,7 +66,6 @@ def act(self, game_state: dict) -> str:
     # get best action based on q_values
     features = state_to_features(game_state)
     _, best_actions = max_q(features, self.model)
-
     self.logger.debug(beautify_features(features, self.model))
 
     if env.POLICY_NAME == DECAY_GREEDY_POLICY_NAME:
@@ -75,5 +74,5 @@ def act(self, game_state: dict) -> str:
 
     action = self.policy(ACTIONS[np.random.choice(best_actions)])
     end = timer()
-    self.logger.debug(f"Elapsed time: {end - start}s")
+    self.logger.debug(f"Elapsed time: {round(end - start, 5)}s")
     return action

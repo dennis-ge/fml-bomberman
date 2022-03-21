@@ -158,11 +158,11 @@ class Agent:
     def wait_for_game_event_processing(self):
         self.backend.get("game_events_occurred")
 
-#    def process_enemy_game_events(self, enemy_game_state, enemy: "Agent"):
-#        self.backend.send_event("enemy_game_events_occurred", enemy.name, enemy.last_game_state, enemy.last_action, enemy_game_state, enemy.events)
-#
-#    def wait_for_enemy_game_event_processing(self):
-#        self.backend.get("enemy_game_events_occurred")
+    #    def process_enemy_game_events(self, enemy_game_state, enemy: "Agent"):
+    #        self.backend.send_event("enemy_game_events_occurred", enemy.name, enemy.last_game_state, enemy.last_action, enemy_game_state, enemy.events)
+    #
+    #    def wait_for_enemy_game_event_processing(self):
+    #        self.backend.get("enemy_game_events_occurred")
 
     def store_game_state(self, game_state):
         self.last_game_state = game_state
@@ -210,11 +210,13 @@ class AgentRunner:
                 proper_signature = f"def {event_name}({', '.join(event_args)}):\n\tpass"
 
                 if not hasattr(module, event_name):
-                    raise NotImplementedError(f"Agent code {self.code_name} does not provide callback for {event_name}.\nAdd this function to your code in {module_name}.py:\n\n{proper_signature}")
+                    raise NotImplementedError(
+                        f"Agent code {self.code_name} does not provide callback for {event_name}.\nAdd this function to your code in {module_name}.py:\n\n{proper_signature}")
                 actual_arg_count = len(signature(getattr(module, event_name)).parameters)
                 event_arg_count = len(event_args)
                 if actual_arg_count != event_arg_count:
-                    raise TypeError(f"Agent code {self.code_name}'s {event_name!r} has {actual_arg_count} arguments, but {event_arg_count} are required.\nChange your function's signature to the following:\n\n{proper_signature}")
+                    raise TypeError(
+                        f"Agent code {self.code_name}'s {event_name!r} has {actual_arg_count} arguments, but {event_arg_count} are required.\nChange your function's signature to the following:\n\n{proper_signature}")
 
         self.fake_self = SimpleNamespace()
         self.fake_self.train = train
@@ -225,7 +227,10 @@ class AgentRunner:
         self.fake_self.logger.setLevel(s.LOG_AGENT_CODE)
         log_dir = f'agent_code/{self.code_name}/logs/'
         if not os.path.exists(log_dir): os.makedirs(log_dir)
-        handler = logging.FileHandler(f'{log_dir}{self.agent_name}.log', mode="w")
+        log_filename = self.agent_name
+        if train:
+            log_filename = f'{self.agent_name}_train'
+        handler = logging.FileHandler(f'{log_dir}{log_filename}.log', mode="w")
         handler.setLevel(logging.DEBUG)
         formatter = logging.Formatter('%(asctime)s [%(name)s] %(levelname)s: %(message)s')
         handler.setFormatter(formatter)

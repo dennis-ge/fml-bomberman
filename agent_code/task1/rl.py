@@ -1,4 +1,3 @@
-from agent_code.task1.agent_settings import *
 from agent_code.task1.features import *
 
 
@@ -10,6 +9,13 @@ class Transition:
         self.reward: float = reward
         self.state_features: np.array = state_to_features(self.state)
         self.next_state_features: np.array = state_to_features(self.next_state)
+
+
+class EnemyTransition:
+    def __init__(self, bomb_action_possible: bool, x: int, y: int):
+        self.bomb_action_possible = bomb_action_possible
+        self.x = x
+        self.y = y
 
 
 def create_policy(name: str, logger: logging.Logger):

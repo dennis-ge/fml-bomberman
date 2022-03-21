@@ -5,7 +5,8 @@ import numpy as np
 from settings import *
 
 
-def get_new_position(action: str, x: int, y: int) -> Tuple[int, int]:
+def get_new_position(action: str, pos: Tuple[int, int]) -> Tuple[int, int]:
+    x, y = pos
     switch = {
         'UP': (x, y - 1),
         'DOWN': (x, y + 1),
@@ -18,13 +19,23 @@ def get_new_position(action: str, x: int, y: int) -> Tuple[int, int]:
     return switch[action]
 
 
-def get_neighbor_positions(x: int, y: int) -> List[Tuple[int, int]]:
+def get_neighbor_positions(pos: Tuple[int, int]) -> List[Tuple[int, int]]:
+    x, y = pos
     return [
         (x, y + 1),
         (x + 1, y),
         (x, y - 1),
         (x - 1, y)
     ]
+
+
+def get_safe_fields(field: np.array, bomb_fields: List[Tuple[int, int]], enemies_pos: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+    safe_fields = []
+    for x, y in np.ndindex(field.shape):
+        if (field[x, y] == 0) and (x, y) not in bomb_fields and (x, y) not in enemies_pos:
+            safe_fields.append((x, y))
+
+    return safe_fields
 
 
 #  look_for_targets is copied from agent_code/rule_based_agent/callbacks.py
@@ -115,8 +126,8 @@ def get_bomb_fields(field: np.array, bombs, explosion_map: np.array) -> List[Tup
     return [(x, y) for x, y in np.ndindex(explosion_map.shape) if (explosion_map[x, y] != 0) or (x, y) in blast_radius]
 
 
-def is_crate_nearby(field: np.array, x: int, y: int) -> bool:
-    neighbor_fields = get_neighbor_positions(x, y)
+def is_crate_nearby(field: np.array, pos: Tuple[int, int]) -> bool:
+    neighbor_fields = get_neighbor_positions(pos)
     for neighbor_x, neighbor_y in neighbor_fields:
         if field[neighbor_x, neighbor_y] == 1:
             return True
@@ -124,7 +135,16 @@ def is_crate_nearby(field: np.array, x: int, y: int) -> bool:
     return False
 
 
-def wait_is_intelligent(field: np.array, bomb_fields: List[Tuple[int, int]], x: int, y: int) -> bool:
+def is_opponent_nearby(pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]]):
+    neighbor_fields = get_neighbor_positions(pos)
+    for neighbor_pos in neighbor_fields:
+        if neighbor_pos in enemies_pos:
+            return True
+
+    return False
+
+
+def wait_is_intelligent(field: np.array, bomb_fields: List[Tuple[int, int]], pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]]) -> bool:
     """
     Checks if waiting is intelligent in the current position. It is intelligent when any other action
     might end up in dead (moving into bomb radius or explosion map)
@@ -133,72 +153,73 @@ def wait_is_intelligent(field: np.array, bomb_fields: List[Tuple[int, int]], x: 
     if len(bomb_fields) == 0:
         return False
 
-    safe_fields = [(x, y) for x, y in np.ndindex(field.shape) if (field[x, y] == 0) and (x, y) not in bomb_fields]
-    neighbor_fields = get_neighbor_positions(x, y)
+    safe_fields = get_safe_fields(field, bomb_fields, enemies_pos)
+    neighbor_fields = get_neighbor_positions(pos)
     for neighbor_field in neighbor_fields:
         if neighbor_field in safe_fields:
             return False
 
-    if (x, y) in bomb_fields:
+    if pos in bomb_fields:
         return False
 
     return True
 
 
-def wait_is_intelligent_alternative(field: np.array, bomb_fields: List[Tuple[int, int]], x: int, y: int) -> bool:
+def wait_is_intelligent_alternative(field: np.array, bomb_fields: List[Tuple[int, int]], pos: Tuple[int, int]) -> bool:
     if len(bomb_fields) == 0:
         return False
 
-    reachable_free_fields = give_reachable_free_fields(field, x, y, [])
+    reachable_free_fields = give_reachable_free_fields(field, pos, [])
 
     safe_fields = [(x, y) for (x, y) in reachable_free_fields if (x, y) not in bomb_fields]
 
-    neighbor_fields = get_neighbor_positions(x, y)
+    neighbor_fields = get_neighbor_positions(pos)
     for neighbor_field in neighbor_fields:
         if neighbor_field in safe_fields:
             return False
 
-    if (x, y) in bomb_fields:
+    if pos in bomb_fields:
         return False
 
     return True
 
 
-def escape_possible(field: np.array, bomb_fields: List[Tuple[int, int]], x: int, y: int) -> bool:
-    own_radius = get_blast_radius(field, [((x, y), 0)])
+def escape_possible(field: np.array, bomb_fields: List[Tuple[int, int]], pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]]) -> bool:
+    own_radius = get_blast_radius(field, [(pos, 0)])
     bomb_fields = bomb_fields + own_radius
 
-    safe_fields = [(x, y) for x, y in np.ndindex(field.shape) if (field[x, y] == 0) and (x, y) not in bomb_fields]  # TODO improve by not calculating whole game board
+    safe_fields = get_safe_fields(field, bomb_fields, enemies_pos)
     free_space = field == 0
-    best_direction, found_target = look_for_targets(free_space, (x, y), safe_fields)
+    best_direction, found_target = look_for_targets(free_space, pos, safe_fields)
 
     if not best_direction or found_target not in safe_fields:
         return False
 
-    min_dist = np.sum(np.abs(np.subtract(safe_fields, (x, y))), axis=1).min()
+    min_dist = np.sum(np.abs(np.subtract(safe_fields, pos)), axis=1).min()
 
     return min_dist <= BOMB_TIMER
 
 
-def escape_possible_alternative(field: np.array, x: int, y: int) -> bool:
-    radius = get_blast_radius(field, [((x, y), 0)])
+def escape_possible_alternative(field: np.array, pos: Tuple[int, int]) -> bool:
+    radius = get_blast_radius(field, [(pos, 0)])
 
-    reachable_free_fields = give_reachable_free_fields(field, x, y, [])
+    reachable_free_fields = give_reachable_free_fields(field, pos, [])
 
     safe_fields = [(x, y) for (x, y) in reachable_free_fields if (x, y) not in radius]
 
     if len(safe_fields) > 0:
-        min_dist = np.sum(np.abs(np.subtract(safe_fields, (x, y))), axis=1).min()
+        min_dist = np.sum(np.abs(np.subtract(safe_fields, pos)), axis=1).min()
         return min_dist <= BOMB_TIMER
     else:
         return False
 
 
-def give_reachable_free_fields(field: np.array, x: int, y: int, current_free_fields: List[Tuple[int, int]]):
+def give_reachable_free_fields(field: np.array, pos: Tuple[int, int], current_free_fields: List[Tuple[int, int]]):
     # list with reachable free fields
     all_free_fields = field == 0
     reachable_free_fields = current_free_fields
 
+    x, y = pos
     if all_free_fields[x, y] and (x, y) not in current_free_fields:
         reachable_free_fields.append((x, y))
         upper_free_fields = give_reachable_free_fields(field, x, y - 1, reachable_free_fields)
