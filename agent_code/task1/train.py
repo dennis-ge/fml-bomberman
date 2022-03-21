@@ -1,6 +1,5 @@
 import pickle
 from collections import deque
-from csv import writer
 
 import agent_code.task1.rl as q
 from agent_code.task1.features import *
@@ -15,9 +14,10 @@ def setup_training(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
-    # Example: Setup an array that will note transition tuples
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
-    self.rewards = 0
+    self.episode = 0
+    self.rewards = np.zeros(env.NUMBER_OF_ROUNDS)
+    self.models = np.zeros((env.NUMBER_OF_ROUNDS, NUMBER_OF_FEATURES))
 
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
@@ -94,10 +94,8 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
                     custom_events.append(MOVED_INTO_BOMB_RADIUS)
 
         events.extend(custom_events)
-        self.logger.debug(f'Custom event occurred: {custom_events}')
-
         current_rewards = reward_from_events(self, events)
-        self.rewards += current_rewards
+        self.rewards[self.episode] += current_rewards
         transition = Transition(old_game_state, self_action, new_game_state, current_rewards)
         self.model = q.td_update(self.model, transition)
         self.transitions.append(transition)
@@ -121,17 +119,22 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     :param last_action:
     :param events:
     """
-    self.episode += 1
     self.logger.debug(f'Encountered event(s) {", ".join(map(repr, events))} in final step (Episode {self.episode})')
     current_rewards = reward_from_events(self, events)
-    self.rewards += current_rewards
+    self.rewards[self.episode] += current_rewards
+    self.models[self.episode] = self.model
     self.transitions.append(Transition(last_game_state, last_action, None, current_rewards))
-    # Store the model
-    with open(MODEL_NAME, "wb") as file:
+
+    with open(env.MODEL_NAME, "wb") as file:
         pickle.dump(self.model, file)
-    with open(REWARDS_NAME, 'a') as file:
-        w = writer(file)
-        w.writerow([self.rewards])
+
+    self.episode += 1
+    if self.episode == env.NUMBER_OF_ROUNDS:
+        with open(env.REWARDS_NAME, 'wb') as file:
+            pickle.dump(self.rewards, file)
+
+        with open(env.WEIGHTS_NAME, 'wb') as file:
+            pickle.dump(self.models, file)
 
 
 def reward_from_events(self, events: List[str]) -> int:
@@ -214,9 +217,10 @@ def moved_towards_crate(old_state, new_state):
 
     return (expected_new_x, expected_new_y) == (actual_new_x, actual_new_y)
 
+
 def stayed_out_of_bomb_radius(old_state, new_state):
     """
-    Feature 9: Checks if the agent did not moved into a bomb field before he was in a safe place
+    Feature 9: Checks if the agent did not move into a bomb field before he was in a safe place
     """
 
     bomb_fields = get_bomb_fields(old_state["field"], old_state["bombs"], old_state["explosion_map"])

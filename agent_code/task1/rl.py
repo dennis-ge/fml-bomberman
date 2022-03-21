@@ -26,15 +26,15 @@ def create_policy(name: str, logger: logging.Logger):
 
     def epsilon_greedy_policy(action: str):
         rand_action = np.random.choice(ACTIONS)
-        chosen_action = np.random.choice([action, rand_action], p=[1 - EPSILON, EPSILON])
+        chosen_action = np.random.choice([action, rand_action], p=[1 - env.EPSILON, env.EPSILON])
         logger.debug(f"Epsilon greedy policy: Given action is '{action}', Chosen action is '{chosen_action}'")
         return chosen_action
 
     def decay_greedy_policy(action: str, curr_episode: int, prev_eps: float):
-        eps = EPSILON_START
+        eps = env.EPSILON_START
         if curr_episode > 0:
-            new_eps = prev_eps * EPSILON_DECAY
-            eps = new_eps if new_eps > EPSILON_END else EPSILON_END
+            new_eps = prev_eps * env.EPSILON_DECAY
+            eps = new_eps if new_eps > env.EPSILON_END else env.EPSILON_END
         rand_action = np.random.choice(ACTIONS)
         chosen_action = np.random.choice([action, rand_action], p=[1 - eps, eps])
         logger.debug(f"Decay epsilon greedy policy: Given action is '{action}', Chosen action is '{chosen_action}' with eps={eps}")
@@ -68,8 +68,8 @@ def td_update(model: np.array, t: Transition) -> np.array:
 
     state_action = t.state_features[ACTIONS.index(t.action), :]
     for _ in range(len(model)):
-        td_error = t.reward + DISCOUNT_FACTOR * q_max - np.dot(state_action, model)
-        updated_weights = updated_weights + LEARNING_RATE * td_error * state_action
+        td_error = t.reward + env.DISCOUNT_FACTOR * q_max - np.dot(state_action, model)
+        updated_weights = updated_weights + env.LEARNING_RATE * td_error * state_action
 
     updated_model = model + updated_weights
     return updated_model

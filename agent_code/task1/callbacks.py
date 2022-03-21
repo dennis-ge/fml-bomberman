@@ -23,9 +23,10 @@ def setup(self):
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
     self.episode = 0
-    self.prev_eps = EPSILON_START
+    self.prev_eps = env.EPSILON_START
+    env.reload()
 
-    self.policy = create_policy(policy_name, self.logger)
+    self.policy = create_policy(env.POLICY_NAME, self.logger)
     if self.train or not os.path.isfile(PROD_MODEL_NAME):
         self.logger.info("Setting up model from scratch.")
         weights = np.random.rand(NUMBER_OF_FEATURES)
@@ -41,7 +42,7 @@ def beautify_features(features: np.array, model: np.array):
     str += "Feature  " + "\t ".join([f'{i}' for i in range(len(features[0]))]) + "\n"
     for i in range(len(features)):
         str += f"{ACTIONS[i]:6}: {features[i]}\n"
-    return str[:-1]
+    return str[:-1].replace("0.", " .")
 
 
 def act(self, game_state: dict) -> str:
@@ -57,7 +58,7 @@ def act(self, game_state: dict) -> str:
 
     self.logger.debug(f"--- Choosing an action for step {game_state['step']} at position {game_state['self'][3]}")
 
-    if self.train and np.random.random() < EPSILON:
+    if self.train and np.random.random() < env.EPSILON:
         rand_action = np.random.choice(ACTIONS, p=[.167, .167, .167, .167, .166, .166])
         self.logger.debug(f"Chosen the following action purely at random: {rand_action}")
         return rand_action
@@ -68,7 +69,7 @@ def act(self, game_state: dict) -> str:
 
     self.logger.debug(beautify_features(features, self.model))
 
-    if policy_name == DECAY_GREEDY_POLICY_NAME:
+    if env.POLICY_NAME == DECAY_GREEDY_POLICY_NAME:
         action, self.prev_eps = self.policy(ACTIONS[np.random.choice(best_actions)], self.episode, self.prev_eps)
         return action
 

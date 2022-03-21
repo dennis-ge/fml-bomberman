@@ -39,11 +39,11 @@ def unique_id(chars=string.ascii_uppercase + string.digits, N=10):
     return ''.join(random.choice(chars) for _ in range(N))
 
 
-def create_match_name(agents: str):
-    return f"{unique_id()}-{'-vs-'.join(agents.split(' '))}"
+def create_match_name(match_id, agents: str):
+    return f"{match_id}-{'-vs-'.join(agents.split(' '))}"
 
 
-EnvVariables = namedtuple("EnvironmentalVariables", ["policy", "model_name", "n_rounds", "gamma"])
+EnvVariables = namedtuple("EnvironmentalVariables", ["policy", "model_name", "n_rounds", "gamma", "match_id"])
 
 
 def set_env(env: EnvVariables):
@@ -51,11 +51,20 @@ def set_env(env: EnvVariables):
     os.environ["MODEL_NAME"] = env.model_name
     os.environ["N_ROUNDS"] = f"{env.n_rounds}"
     os.environ["GAMMA"] = f"{env.gamma}"
+    os.environ["MATCH_ID"] = env.match_id
 
 
 #
 # Game related
 #
+def get_opponents(arg):
+    switch = {
+        "": "",
+        "rule": " rule_based_agent rule_based_agent rule_based_agent",
+        "random": " random_agent random_agent random_agent",
+        "peaceful": " peaceful_agent peaceful_agent peaceful_agent",
+    }
+    return switch.get(arg)
 
 
 GameIteration = namedtuple("GameIteration", ["agents", "match_name", "n_rounds", "log_dir", "save_stats",
@@ -80,22 +89,23 @@ def play_iteration(iteration: GameIteration, env: EnvVariables):
     play(game_args)
 
 
-def play_game(env: EnvVariables, scenario: str, n_rounds: int, all_agents: List[str]):
+def play_game(scenario: str, agents: str, envs: List[EnvVariables]):
     """
     play x iterations of the game with the given settings
     """
 
-    def execute(**kwargs):
-        # envs = *env
+    def execute(e, **kwargs):
         logger.info("Executing iteration", extra=kwargs)
         it = GameIteration(**kwargs)
-        play_iteration(it, env)
+        play_iteration(it, e)
 
-    for agent in all_agents:
-        mn = create_match_name(agent)
-        execute(agents=agent, match_name=mn, n_rounds=n_rounds, scenario=scenario, save_stats=f"results/{TIMESTAMP}-{mn}.json",
+    for env in envs:
+        mn = create_match_name(env.match_id, agents)
+        execute(env, agents=agents, match_name=mn, n_rounds=env.n_rounds, scenario=scenario, save_stats=f"results/{TIMESTAMP}-{mn}.json",
                 log_dir=os.path.dirname(os.path.abspath(__file__)) + "/logs", seed=False)
-        shutil.copy2(f'dump/{env.model_name}', f'agent_code/{agent.split(" ")[0]}/models/{env.model_name}')
+
+        first_agent = agents.split(" ")[0]
+        shutil.copy2(f'dump/models/{env.model_name}', f'agent_code/{first_agent}/models/{env.model_name}')
 
 
 #
@@ -104,32 +114,19 @@ def play_game(env: EnvVariables, scenario: str, n_rounds: int, all_agents: List[
 def main(argv=None):
     parser = ArgumentParser()
     parser.add_argument("--rounds", type=int, default=500)
+    parser.add_argument("--agent", type=str, default="task1")
     parser.add_argument("--o", type=str, default="")
 
     args = parser.parse_args(argv)
 
-    agents = "task1"
-    if args.o == "rule":
-        agents += " rule_based_agent rule_based_agent rule_based_agent"
+    agents = args.agent + get_opponents(args.o)
 
-    if args.o == "random":
-        agents += " random_agent random_agent random_agent"
-
-    if args.o == "peaceful":
-        agents += " peaceful_agent peaceful_agent peaceful_agent"
-
-
-
-    n_rounds = args.rounds
     envs = [
-        EnvVariables(policy="epsilon_greedy", model_name="task1-trained.pt", gamma=0.8, n_rounds=n_rounds),
-        #EnvVariables(policy="decay_greedy", model_name="task1-decay-trained.pt", gamma=0.8, n_rounds=n_rounds),
+        EnvVariables(policy="epsilon_greedy", model_name="task1-eps.pt", gamma=0.8, n_rounds=args.rounds, match_id=f"task1-{unique_id()}"),
+        # EnvVariables(policy="decay_greedy", model_name="task1-decay-trained.pt", gamma=0.8, n_rounds=args.rounds, match_id=f"task1-{unique_id()}"),
     ]
 
-    # env = EnvVariables(policy="epsilon_greedy", model_name=model_name, gamma="0.8", n_rounds=f"{n_rounds}")
-    # all_agents = ["task1 task1_double_q", "task1", "task1_double_q"]
-    for env in envs:
-        play_game(env=env, scenario="classic", n_rounds=n_rounds, all_agents=[agents])
+    play_game(agents=agents, scenario="classic", envs=envs)
 
 
 if __name__ == "__main__":

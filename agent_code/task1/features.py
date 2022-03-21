@@ -1,7 +1,9 @@
+from scipy.spatial.distance import cityblock
+
 from agent_code.task1.agent_settings import *
 from agent_code.task1.game_info import *
 
-from scipy.spatial.distance import cityblock
+
 def state_to_features(game_state: dict) -> np.array:
     """
     Converts the game state to a feature vector.
@@ -25,15 +27,15 @@ def state_to_features(game_state: dict) -> np.array:
     bomb_fields = get_bomb_fields(field, bombs, explosion_map)
 
     stacked_channels = np.vstack((
-        [BIAS] * len(ACTIONS),
+        [env.BIAS] * len(ACTIONS),
         feat_1(field, coins, agent_x, agent_y),
         feat_2(coins, agent_x, agent_y),
         feat_3(field, bomb_fields, bomb_action_possible, agent_x, agent_y),
         feat_4(field, bomb_fields, agent_x, agent_y),
         feat_5(field, bomb_fields, agent_x, agent_y),
         feat_6(field, bomb_fields, bomb_action_possible, agent_x, agent_y),
-        feat_9(field, bomb_fields, agent_x, agent_y)
         # feat_7(field, bomb_action_possible, agent_x, agent_y),
+        feat_9(field, bomb_fields, agent_x, agent_y)
     ))
 
     return stacked_channels.T
@@ -56,7 +58,6 @@ def feat_1(field: np.array, coins: List[Tuple[int, int]], x: int, y: int) -> np.
             new_x, new_y = get_new_position(action, x, y)
             if (new_x, new_y) == best_direction:
                 feature[idx] = 1
-
 
     return feature
 
@@ -139,17 +140,16 @@ def feat_4(field: np.array, bomb_fields: List[Tuple[int, int]], x: int, y: int) 
 
 def feat_5(fields: np.array, bomb_fields: List[Tuple[int, int]], x: int, y: int) -> np.array:
     """
-    Agent stays out of bomb/explosion
+    Agent stays out of bomb radius/explosion map
     """
     # TODO: only bombs that are next to the agent
     feature = np.ones(len(ACTIONS))
 
     bomb_fields_nearby = []
     for bomb_x, bomb_y in bomb_fields:
-        distance = cityblock([x,y],[bomb_x, bomb_y])
+        distance = cityblock([x, y], [bomb_x, bomb_y])
         if distance < 6:
             bomb_fields_nearby.append((bomb_x, bomb_y))
-
 
     if len(bomb_fields_nearby) > 0:
         free_space = fields == 0
@@ -161,9 +161,8 @@ def feat_5(fields: np.array, bomb_fields: List[Tuple[int, int]], x: int, y: int)
             if (new_x, new_y) == best_direction:
                 feature[idx] = 0
 
-    # set bomb and wait to zero, since only real moves should be evaluated
+    # set bomb to zero, since only real moves should be evaluated
     feature[ACTIONS.index("BOMB")] = 0
-    # feature[ACTIONS.index("WAIT")] = 0
     return feature
 
 
@@ -212,42 +211,15 @@ def feat_7(field: np.array, bomb_action_possible: bool, x: int, y: int) -> np.ar
     return feature
 
 
-def feat_8(field: np.array, bomb_action_possible: bool, x: int, y: int) -> np.array:
-    """
-    Agent places bomb that is useless
-
-    1. check if agent can place bomb
-    2. calculate bomb radius
-    3. check if create gets destroyed by bomb
-    4. TODO check if opponents can be destroyed
-    """
-
-    feature = np.zeros(len(ACTIONS))
-
-    if not bomb_action_possible:
-        return feature
-
-    radius = get_blast_radius(field, [((x, y), 0)])
-
-    crates = [(x, y) for x, y in np.ndindex(field.shape) if
-              (field[x, y] == 1)]
-
-    for crate in crates:
-        if crate in radius and escape_possible_alternative(field, x, y):
-            feature[ACTIONS.index("BOMB")] = 1
-    return feature
-
 def feat_9(field: np.array, bomb_fields: List[Tuple[int, int]], x: int, y: int) -> np.array:
     """
-    After the next move, the agent does not stay in a bomb field
-    1. Get current position of agent
-    2. Check if bomb fields are present: if not return ones for all actions
-    3. Check if agent is currently in bomb radius, if not check if the next move will get him into one
+    Reward the agent for not moving into bomb radius/explosion map.
+    Requirement: Agent is currently not in bomb radius/explosion map
     """
     feature = np.zeros(len(ACTIONS))
 
     if len(bomb_fields) == 0:
-        #TODO: try out return equals 1
+        # TODO: try out return equals 1
         return feature
 
     if (x, y) not in bomb_fields:
@@ -265,6 +237,7 @@ def feat_9(field: np.array, bomb_fields: List[Tuple[int, int]], x: int, y: int) 
 
     return feature
 
+
 # TODO: negative reward for setting bombs that cannot destroy any create or kill an oponnent
 
 def feat_10(field: np.array, x: int, y: int) -> np.array:
@@ -274,9 +247,8 @@ def feat_10(field: np.array, x: int, y: int) -> np.array:
     feature = np.zeros(len(ACTIONS))
     return feature
 
-
 # Reward for moving towards the nearest opponent: under certain conditions
-# Use transitions of the other agents: think about features
+# Use transitions of the other agents: think about weights
 # Reward for setting bombs that can kill an opponent
 # Reward bombs that are leading for a "safe" dead of an agent
 # dead end feature
