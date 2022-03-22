@@ -50,7 +50,7 @@ def state_to_features(game_state: dict) -> np.array:
 
 
 def calc_min_distance(coins: List[Tuple[int, int]], x: int, y: int) -> int:
-    min_d = 10000000000  # TODO set to inf
+    min_d = 10000000000
     for (x_coin, y_coin) in coins:
         # d = np.linalg.norm(np.array((x, y)) - np.array((x_coin, y_coin)), ord=1)
         d = cityblock([x,y], [x_coin, y_coin])

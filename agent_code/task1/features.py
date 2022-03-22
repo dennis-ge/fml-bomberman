@@ -39,6 +39,7 @@ def state_to_features(game_state: dict) -> Union[Tuple[None, None], Tuple[np.nda
         feat_9(field, bomb_fields, bomb_action_possible, agent_pos, enemies_pos),
         feat_10(field, agent_pos, bomb_action_possible, enemies_nearby),
         feat_11(field, agent_pos, enemies_pos, crates, coins),
+        feat_12(field, agent_pos, bomb_action_possible, enemies_pos)
     ))
 
     printable_field = ""
@@ -119,7 +120,6 @@ def feat_3(field: np.ndarray, bomb_fields: List[Tuple[int, int]], bomb_action_po
         if action == "WAIT" and not wait_is_intelligent(field, bomb_fields, agent_pos, enemies_pos):
             continue
 
-        # TODO check if bomb is in the current position
         if action == "BOMB" and not bomb_action_possible:
             continue
 
@@ -313,8 +313,21 @@ def feat_11(field: np.ndarray, agent_pos: Tuple[int, int], enemies: List[Tuple[i
 
     return feature
 
+def feat_12(field: np.ndarray, agent_pos: Tuple[int, int], bomb_action_possible: bool, enemies_pos: List[Tuple[int, int]]) -> np.ndarray:
+    """
+    Agent sets bomb if it leads to a safe dead of an opponent.
+    """
+    feature = np.zeros(len(ACTIONS))
+    if bomb_action_possible:
+        # check for fields that only have one direction for escaping
+
+        # get dead_end_exists
+        dead_end_exits = get_dead_end_exits(field, enemies_pos)
+
+        if dead_end_exit_reachable(dead_end_exits, agent_pos):
+            feature[ACTIONS.index("BOMB")] = 1
+
+    return feature
+
 # Use transitions of the other agents: think about weights
-# Reward bombs that are leading for a "safe" dead of an agent
-# dead end feature
 # consider other agent pos
-# coins search and crate search only when not in bomb fields

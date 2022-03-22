@@ -41,6 +41,34 @@ def get_neighbor_positions(pos: Tuple[int, int]) -> List[Tuple[int, int]]:
         (x - 1, y)
     ]
 
+def dead_end_exit_reachable(dead_end_exits: List[Tuple[int, int]], agent_pos: Tuple[int, int]):
+    if len(dead_end_exits) > 0:
+        neighbor_fields = get_neighbor_positions(agent_pos)
+        if neighbor_fields in dead_end_exits:
+            return True
+    else:
+        return False
+
+
+def get_dead_end_exits(field: np.array, enemies_pos: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+    dead_ends = [(x, y) for x, y in np.ndindex(field.shape) if field[x, y] == 0 and (
+            [field[x + 1, y], field[x - 1, y], field[x, y + 1], field[x, y - 1]].count(0) == 1)]
+
+    dead_end_exits = []
+    for enemy in enemies_pos:
+        if enemy in dead_ends:
+            dead_end_exit = get_dead_end_exit(field, enemy)
+            dead_end_exits.append(dead_end_exit)
+    return dead_end_exits
+
+
+def get_dead_end_exit(field: np.array, pos: Tuple[int, int]) -> Tuple[int, int]:
+    neighbors = get_neighbor_positions(pos)
+
+    for (x, y) in neighbors:
+        if field[x, y] == 0:
+            return (x, y)
+
 
 def get_extended_neighbor_positions(pos: Tuple[int, int]) -> List[Tuple[int, int]]:
     x, y = pos
@@ -56,7 +84,8 @@ def get_extended_neighbor_positions(pos: Tuple[int, int]) -> List[Tuple[int, int
     ]
 
 
-def get_safe_fields(field: np.array, bomb_fields: List[Tuple[int, int]], enemies_pos: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+def get_safe_fields(field: np.array, bomb_fields: List[Tuple[int, int]], enemies_pos: List[Tuple[int, int]]) -> List[
+    Tuple[int, int]]:
     safe_fields = []
     for x, y in np.ndindex(field.shape):
         if (field[x, y] == 0) and (x, y) not in bomb_fields and (x, y) not in enemies_pos:
@@ -171,8 +200,10 @@ def is_opponent_nearby(pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]])
 
     return False
 
+
 def get_dangerous_fields(field: np.ndarray) -> List[Tuple[int, int]]:
     pass
+
 
 def get_nearby_enemies(pos: Tuple[int, int], enemies: List[Tuple[str, int, bool, Tuple[int, int]]]):
     enemies_nearby = []
@@ -183,7 +214,8 @@ def get_nearby_enemies(pos: Tuple[int, int], enemies: List[Tuple[str, int, bool,
     return enemies_nearby
 
 
-def wait_is_intelligent(field: np.ndarray, bomb_fields: List[Tuple[int, int]], pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]]) -> bool:
+def wait_is_intelligent(field: np.ndarray, bomb_fields: List[Tuple[int, int]], pos: Tuple[int, int],
+                        enemies_pos: List[Tuple[int, int]]) -> bool:
     """
     Checks if waiting is intelligent in the current position. It is intelligent when any other action
     might end up in dead (moving into bomb radius or explosion map)
@@ -204,7 +236,8 @@ def wait_is_intelligent(field: np.ndarray, bomb_fields: List[Tuple[int, int]], p
     return True
 
 
-def wait_is_intelligent_alternative(field: np.ndarray, bomb_fields: List[Tuple[int, int]], pos: Tuple[int, int]) -> bool:
+def wait_is_intelligent_alternative(field: np.ndarray, bomb_fields: List[Tuple[int, int]],
+                                    pos: Tuple[int, int]) -> bool:
     if len(bomb_fields) == 0:
         return False
 
@@ -223,7 +256,8 @@ def wait_is_intelligent_alternative(field: np.ndarray, bomb_fields: List[Tuple[i
     return True
 
 
-def escape_possible(field: np.ndarray, bomb_fields: List[Tuple[int, int]], pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]]) -> bool:
+def escape_possible(field: np.ndarray, bomb_fields: List[Tuple[int, int]], pos: Tuple[int, int],
+                    enemies_pos: List[Tuple[int, int]]) -> bool:
     own_radius = get_blast_radius(field, [(pos, 0)])
     bomb_fields = bomb_fields + own_radius
 
