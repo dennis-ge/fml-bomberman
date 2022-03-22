@@ -109,6 +109,11 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
         else:
             custom_events.append(DID_NOT_PLACED_BOMB_NEXT_TO_OPPONENT)
 
+    if useless_bomb_dropped(old_game_state, new_game_state, self_action):
+        custom_events.append(SET_USELESS_BOMB)
+    # else:
+        # TODO: replace event
+        # custom_events.append(USEFUL_BOMB)
     events.extend(custom_events)
     current_rewards = reward_from_events(self, events)
     self.rewards[self.episode] += current_rewards
@@ -145,6 +150,9 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
         pickle.dump(self.model, file)
 
     self.episode += 1
+    # TODO: print value of the rewards and results of the game in order to see if we have created a good agent
+    # TODO: use average of the last 10? games
+
     if self.episode == env.NUMBER_OF_ROUNDS:
         with open(env.REWARDS_NAME, 'wb') as file:
             pickle.dump(self.rewards, file)
@@ -247,3 +255,42 @@ def moved_towards_crate(old_state, new_state):
     actual_new_x, actual_new_y = new_state["self"][3]
 
     return (expected_new_x, expected_new_y) == (actual_new_x, actual_new_y)
+
+
+def useless_bomb_dropped(old_state, new_state, last_action):
+    """
+    Check if the agent has set a bomb that cannot destroy a crate or any another agent
+
+    1. Check if the last action of the agent was "BOMBED"
+    2. Calculate blast radius of current bomb and get the affected fields
+    3. Check if crate was in blast radius
+    4. Check if other agent was in blast radius
+    5. If agent cannot escapse return also True
+    """
+    if last_action == "BOMB":
+        field = old_state["field"]
+        bomb_x, bomb_y = old_state["self"][3]
+
+        bomb = (bomb_x, bomb_y)
+        blast_radius_of_bomb = get_blast_radius(old_state["field"], [(bomb, 0)])
+
+        # TODO: check if agent can escape
+        if not escape_possible_alternative(field, bomb):
+            return True
+
+        # Check if at least one crate is destroyed in bomb radius
+        crates = [(x, y) for x, y in np.ndindex(field.shape) if (field[x, y] == 1)]
+        for crate in crates:
+            if crate in blast_radius_of_bomb:
+                return False
+
+        # Check if at least one opponent is in the bomb radius
+        opponents = old_state["others"]
+        for opponent in opponents:
+            opponent_x, opponent_y = opponent[3]
+            if (opponent_x, opponent_y) in blast_radius_of_bomb:
+                return False
+
+        return True
+    else:
+        return False

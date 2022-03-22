@@ -117,7 +117,7 @@ def feat_3(field: np.array, bomb_fields: List[Tuple[int, int]], bomb_action_poss
 def feat_4(field: np.array, bomb_fields: List[Tuple[int, int]], agent_pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]]) -> np.array:
     """
     Agent moves out of the blast radius (and does not move into other)
-    TODO there are maybe multiple correct directions
+    TODO: there are maybe multiple correct directions
     """
     feature = np.zeros(len(ACTIONS))
 
@@ -254,10 +254,10 @@ def feat_9(field: np.array, bomb_fields: List[Tuple[int, int]], bomb_action_poss
 
     return feature
 
-# Reward for moving towards the nearest opponent: under certain conditions
+# Feature for moving towards the nearest opponent: under certain conditions
 # Use transitions of the other agents: think about weights
-# Reward for setting bombs that can kill an opponent
-# Reward bombs that are leading for a "safe" dead of an agent
+# Feature for setting bombs that can kill an opponent
+# Feature bombs that are leading for a "safe" dead of an agent
 # dead end feature
 # Move away if other agent is nearby that has a bomb action available
 # consider other agent pos

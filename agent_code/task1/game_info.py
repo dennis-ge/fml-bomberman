@@ -222,10 +222,10 @@ def give_reachable_free_fields(field: np.array, pos: Tuple[int, int], current_fr
     x, y = pos
     if all_free_fields[x, y] and (x, y) not in current_free_fields:
         reachable_free_fields.append((x, y))
-        upper_free_fields = give_reachable_free_fields(field, x, y - 1, reachable_free_fields)
-        lower_free_fields = give_reachable_free_fields(field, x, y + 1, reachable_free_fields)
-        rigth_free_fields = give_reachable_free_fields(field, x + 1, y, reachable_free_fields)
-        left_free_fields = give_reachable_free_fields(field, x - 1, y, reachable_free_fields)
+        upper_free_fields = give_reachable_free_fields(field, (x, y - 1), reachable_free_fields)
+        lower_free_fields = give_reachable_free_fields(field, (x, y + 1), reachable_free_fields)
+        rigth_free_fields = give_reachable_free_fields(field, (x + 1, y), reachable_free_fields)
+        left_free_fields = give_reachable_free_fields(field, (x - 1, y), reachable_free_fields)
 
         reachable_free_fields = reachable_free_fields + left_free_fields + rigth_free_fields + lower_free_fields + upper_free_fields
 
