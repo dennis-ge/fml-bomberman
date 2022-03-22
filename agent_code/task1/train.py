@@ -21,26 +21,7 @@ def setup_training(self):
     self.models = np.zeros((env.NUMBER_OF_ROUNDS, NUMBER_OF_FEATURES))
 
 
-def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
-    """
-    Called once per step to allow intermediate rewards based on game events.
-
-    When this method is called, self.events will contain a list of all game
-    events relevant to your agent that occurred during the previous step. Consult
-    settings.py to see what events are tracked. You can hand out rewards to your
-    agent based on these events and your knowledge of the (new) game state.
-
-    This is *one* of the places where you could update your agent.
-
-    :param self: This object is passed to all callbacks and you can set arbitrary values.
-    :param old_game_state: The state that was passed to the last call of `act`.
-    :param self_action: The action that you took.
-    :param new_game_state: The state the agent is in now.
-    :param events: The events that occurred when going from  `old_game_state` to `new_game_state`
-    """
-    if old_game_state is None:
-        return None
-
+def get_custom_events(self, old_game_state: dict, self_action: str, new_game_state: dict or None) -> List[str]:
     custom_events = []
     bomb_fields = get_bomb_fields(old_game_state["field"], old_game_state["bombs"], old_game_state["explosion_map"])
     enemies_pos = [enemy[3] for enemy in old_game_state["others"]]
@@ -112,9 +93,47 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     if useless_bomb_dropped(old_game_state, new_game_state, self_action):
         custom_events.append(SET_USELESS_BOMB)
     # else:
-        # TODO: replace event
-        # custom_events.append(USEFUL_BOMB)
-    events.extend(custom_events)
+    # TODO: replace event
+    # custom_events.append(USEFUL_BOMB)
+
+    # Feature 10
+    enemies_nearby = get_nearby_enemies(old_game_state["self"][3], old_game_state["others"])
+    if len(enemies_nearby) > 0:
+        if moved_away_from_dangerous_enemies(old_game_state, new_game_state, enemies_pos):
+            custom_events.append(MOVED_AWAY_FROM_DANGEROUS_ENEMY)
+        else:
+            custom_events.append(MOVED_AWAY_FROM_DANGEROUS_ENEMY)
+
+    crates = [(x, y) for x, y in np.ndindex(old_game_state["field"].shape) if (old_game_state["field"][x, y] == 1) or (x, y)]
+    if len(crates) == 0 and len(old_game_state["coins"]) == 0 and len(enemies_pos) > 0:
+        if moved_towards_enemy(old_game_state, new_game_state, enemies_pos, crates):
+            custom_events.append(MOVED_TOWARDS_ENEMY)
+        else:
+            custom_events.append(MOVED_AWAY_FROM_ENEMY)
+    return custom_events
+
+
+def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
+    """
+    Called once per step to allow intermediate rewards based on game events.
+
+    When this method is called, self.events will contain a list of all game
+    events relevant to your agent that occurred during the previous step. Consult
+    settings.py to see what events are tracked. You can hand out rewards to your
+    agent based on these events and your knowledge of the (new) game state.
+
+    This is *one* of the places where you could update your agent.
+
+    :param self: This object is passed to all callbacks and you can set arbitrary values.
+    :param old_game_state: The state that was passed to the last call of `act`.
+    :param self_action: The action that you took.
+    :param new_game_state: The state the agent is in now.
+    :param events: The events that occurred when going from  `old_game_state` to `new_game_state`
+    """
+    if old_game_state is None:
+        return None
+
+    events.extend(get_custom_events(self, old_game_state, self_action, new_game_state))
     current_rewards = reward_from_events(self, events)
     self.rewards[self.episode] += current_rewards
     transition = Transition(old_game_state, self_action, new_game_state, current_rewards)
@@ -140,11 +159,16 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     :param last_action:
     :param events:
     """
+
     self.logger.debug(f'Encountered event(s) {", ".join(map(repr, events))} in final step (Episode {self.episode})')
     current_rewards = reward_from_events(self, events)
     self.rewards[self.episode] += current_rewards
     self.models[self.episode] = self.model
-    self.transitions.append(Transition(last_game_state, last_action, None, current_rewards))
+
+    last_transition = Transition(last_game_state, last_action, None, current_rewards)
+    self.transitions.append(last_transition)
+    fake_q_values = np.zeros(self.model.shape)
+    self.logger.debug(beautify_output(last_transition.printable_field, last_transition.state_features, self.model, fake_q_values))
 
     with open(env.MODEL_NAME, "wb") as file:
         pickle.dump(self.model, file)
@@ -176,7 +200,7 @@ def reward_from_events(self, events: List[str]) -> int:
     return reward_sum
 
 
-def moved_towards_coin(old_state, new_state):
+def moved_towards_coin(old_state, new_state) -> bool:
     """
     Feature 1: Checks whether the agent moved towards a coin.
     """
@@ -190,7 +214,7 @@ def moved_towards_coin(old_state, new_state):
     return (expected_new_x, expected_new_y) == (actual_new_x, actual_new_y)
 
 
-def moved_out_of_blast_radius(old_state, new_state, bomb_fields, enemies_pos):
+def moved_out_of_blast_radius(old_state, new_state, bomb_fields, enemies_pos) -> bool:
     """
     Feature 4: Checks whether the agent moved out of the blast radius
     Note: The agent is in the blast radius in the old state.
@@ -205,7 +229,7 @@ def moved_out_of_blast_radius(old_state, new_state, bomb_fields, enemies_pos):
     return (expected_new_x, expected_new_y) == (actual_new_x, actual_new_y)
 
 
-def stayed_out_of_bomb_fields(old_state, new_state, bomb_fields):
+def stayed_out_of_bomb_fields(old_state, new_state, bomb_fields) -> bool:
     """
     Feature 5: Checks whether the agent moved towards an explosion or bomb that is about to explode.
     """
@@ -221,7 +245,7 @@ def stayed_out_of_bomb_fields(old_state, new_state, bomb_fields):
     return False
 
 
-def did_not_move_into_bomb_fields(old_state, new_state, bomb_fields):
+def did_not_move_into_bomb_fields(old_state, new_state, bomb_fields) -> bool:
     """
     Feature 6: Checks if the agent did not move into a bomb field when he was in a safe place before
     """
@@ -239,9 +263,9 @@ def did_not_move_into_bomb_fields(old_state, new_state, bomb_fields):
     return False
 
 
-def moved_towards_crate(old_state, new_state):
+def moved_towards_crate(old_state, new_state) -> bool:
     """
-    Feature 7: Checks whether the agent moved towards a crate.
+    Feature 8: Checks whether the agent moved towards a crate.
     """
     feature_old = feat_8(old_state["field"], old_state["self"][2], old_state["self"][3])
 
@@ -294,3 +318,34 @@ def useless_bomb_dropped(old_state, new_state, last_action):
         return True
     else:
         return False
+
+
+def moved_away_from_dangerous_enemies(old_state, new_state, enemies_nearby) -> bool:
+    """
+    Feature 10:
+    """
+    feature_old = feat_10(old_state["field"], old_state["self"][3], old_state["self"][2], enemies_nearby)
+
+    actual_new_x, actual_new_y = new_state["self"][3]
+
+    idxs = np.where(feature_old == 1)[0]
+    for idx in idxs:
+        expected_new_x, expected_new_y = get_new_position(ACTIONS[idx], old_state["self"][3])
+        if (expected_new_x, expected_new_y) == (actual_new_x, actual_new_y):
+            return True
+
+    return False
+
+
+def moved_towards_enemy(old_state, new_state, enemies, crates) -> bool:
+    """
+    Feature 11:
+    """
+    feature_old = feat_11(old_state["field"], old_state["self"][3], enemies, crates, old_state["coins"])
+
+    idx = np.where(feature_old == 1)[0][0]
+    expected_new_x, expected_new_y = get_new_position(ACTIONS[idx], old_state["self"][3])
+
+    actual_new_x, actual_new_y = new_state["self"][3]
+
+    return (expected_new_x, expected_new_y) == (actual_new_x, actual_new_y)

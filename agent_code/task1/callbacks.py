@@ -5,6 +5,7 @@ import numpy as np
 
 from agent_code.task1.agent_settings import *
 from agent_code.task1.features import state_to_features
+from agent_code.task1.game_info import beautify_output
 from agent_code.task1.rl import create_policy, max_q
 
 
@@ -37,14 +38,6 @@ def setup(self):
             self.model = pickle.load(file)
 
 
-def beautify_features(features: np.array, model: np.array):
-    str = f"Model {model}\n"
-    str += "Feature   " + "\t ".join([f'{i}' for i in range(len(features[0]))]) + "\n"
-    for i in range(len(features)):
-        str += f"{ACTIONS[i]:6}: {features[i]}\n"
-    return str[:-1].replace("0.", " .")
-
-
 def act(self, game_state: dict) -> str:
     """
     Your agent should parse the input, think, and take a decision.
@@ -64,9 +57,10 @@ def act(self, game_state: dict) -> str:
         return rand_action
 
     # get best action based on q_values
-    features = state_to_features(game_state)
-    _, best_actions = max_q(features, self.model)
-    self.logger.debug(beautify_features(features, self.model))
+    features, printable_field = state_to_features(game_state)
+    _, best_actions, q_values = max_q(features, self.model)
+
+    self.logger.debug(beautify_output(printable_field, features, self.model, q_values))
 
     if env.POLICY_NAME == DECAY_GREEDY_POLICY_NAME:
         action, self.prev_eps = self.policy(ACTIONS[np.random.choice(best_actions)], self.episode, self.prev_eps)
@@ -74,5 +68,5 @@ def act(self, game_state: dict) -> str:
 
     action = self.policy(ACTIONS[np.random.choice(best_actions)])
     end = timer()
-    self.logger.debug(f"Elapsed time: {round(end - start, 5)}s")
+    self.logger.debug(f"Elapsed time for act: {round(end - start, 5)}s")
     return action

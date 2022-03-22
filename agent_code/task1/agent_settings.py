@@ -15,7 +15,7 @@ PROD_MODEL_NAME = f"./models/{AGENT_NAME}-eps.pt"  # When a model is trained wit
 #
 # ML/Hyperparameter
 #
-NUMBER_OF_FEATURES = 9
+NUMBER_OF_FEATURES = 11
 
 GREEDY_POLICY_NAME = 'greedy'
 EPSILON_GREEDY_POLICY_NAME = 'epsilon_greedy'
@@ -26,6 +26,7 @@ ENEMY_TRANSITION_HISTORY_SIZE = 20  # record enemy transitions with probability.
 
 
 class EnvSettings:
+    PRINT_FIELD: bool
     MATCH_ID: str
     MODEL_NAME: str
     WEIGHTS_NAME: str
@@ -44,6 +45,7 @@ class EnvSettings:
         self.reload()
 
     def reload(self):
+        self.PRINT_FIELD = os.environ.get("PRINT_FIELD", False)
         self.MATCH_ID = os.environ.get("MATCH_ID", f"{AGENT_NAME}-{TIMESTAMP}")
         self.MODEL_NAME = "../../dump/models/" + os.environ.get("MODEL_NAME", f"{self.MATCH_ID}.pt")  # We store each model first within the dump directory
         self.REWARDS_NAME = f"../../dump/rewards/{self.MATCH_ID}.pt"
@@ -88,10 +90,16 @@ MOVED_AWAY_FROM_CRATE = "MOVED_AWAY_FROM_CRATE"
 # Feature 8
 STAYED_OUT_OF_BOMB_RADIUS = "STAYED_OUT_OF_BOMB_RADIUS"
 MOVED_INTO_BOMB_RADIUS = "MOVED_INTO_BOMB_RADIUS"
-# Feature 6
+# Feature 9
 PLACED_BOMB_NEXT_TO_OPPONENT = "PLACED_BOMB_NEXT_TO_OPPONENT"
 DID_NOT_PLACED_BOMB_NEXT_TO_OPPONENT = "DID_NOT_PLACED_BOMB_NEXT_TO_OPPONENT"
 # TODO remove DID_NOT_PLACED_BOMB_NEXT_TO_OPPONENT and DID_NOT_PLACED_BOMB_NEXT_TO_CRATE and add reward for general bad position
+# Feature 10
+MOVED_AWAY_FROM_DANGEROUS_ENEMY = "MOVED_AWAY_FROM_DANGEROUS_ENEMY"
+MOVED_TOWARDS_DANGEROUS_ENEMY = "MOVED_TOWARDS_DANGEROUS_ENEMY"
+# Feature 11
+MOVED_TOWARDS_ENEMY = "MOVED_TOWARDS_ENEMY"
+MOVED_AWAY_FROM_ENEMY = "MOVED_AWAY_FROM_ENEMY"
 # Without own feature
 SET_USELESS_BOMB = "SET_USELESS_BOMB"
 USEFUL_BOMB = "USEFUL_BOMB"
@@ -105,16 +113,15 @@ REWARDS = {
     PLACED_BOMB_NEXT_TO_CRATE: 5,
     e.BOMB_DROPPED: 10,
     e.COIN_FOUND: 10,  # A coin has been revealed by own bomb.
-    MOVED_AWAY_FROM_BOMB_FIELDS: 30,
     MOVED_TOWARDS_COIN: 15,
-    e.COIN_COLLECTED: 20,
-    e.KILLED_OPPONENT: 20,
     # PLACED_BOMB_NEXT_TO_OPPONENT: 10,
-    MOVED_TOWARDS_COIN: 25,
     e.COIN_COLLECTED: 40,
+    MOVED_AWAY_FROM_DANGEROUS_ENEMY: 5,
+    PLACED_BOMB_NEXT_TO_OPPONENT: 10,
     WAIT_ACTION_IS_INTELLIGENT: 20,  # contrary to WAITED
-    STAYED_OUT_OF_BOMB_RADIUS: 40,
-    MOVED_OUT_OF_BLAST_RADIUS: 30,
+    MOVED_AWAY_FROM_BOMB_FIELDS: 30,
+    STAYED_OUT_OF_BOMB_RADIUS: 30,
+    MOVED_OUT_OF_BLAST_RADIUS: 40,
     e.SURVIVED_ROUND: 50,
     # Negative
     e.MOVED_UP: -1,
@@ -123,8 +130,9 @@ REWARDS = {
     e.MOVED_LEFT: -1,
     MOVED_AWAY_FROM_CRATE: -2,
     SET_USELESS_BOMB: -20,
+    MOVED_TOWARDS_DANGEROUS_ENEMY: -5,
     DID_NOT_PLACED_BOMB_NEXT_TO_CRATE: -40,
-    # DID_NOT_PLACED_BOMB_NEXT_TO_OPPONENT: -15,
+    DID_NOT_PLACED_BOMB_NEXT_TO_OPPONENT: -10,
     DID_NOT_COLLECT_COIN: -25,
     MOVED_AWAY_FROM_COIN: -35,
     MOVED_TOWARDS_BOMB_FIELDS: -55,
@@ -133,5 +141,5 @@ REWARDS = {
     e.GOT_KILLED: -50,
     e.INVALID_ACTION: -50,  # Picked a non-existent action or one that couldn’t be executed.
     STAYED_IN_BLAST_RADIUS: -80,
-    e.KILLED_SELF: -100,
+    e.KILLED_SELF: -200,
 }

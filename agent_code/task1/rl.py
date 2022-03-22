@@ -7,8 +7,8 @@ class Transition:
         self.action: str = action
         self.next_state: dict = next_state
         self.reward: float = reward
-        self.state_features: np.array = state_to_features(self.state)
-        self.next_state_features: np.array = state_to_features(self.next_state)
+        self.state_features, self.printable_field = state_to_features(self.state)
+        self.next_state_features, _ = state_to_features(self.next_state)
 
 
 class EnemyTransition:
@@ -56,12 +56,12 @@ def create_policy(name: str, logger: logging.Logger):
     raise ValueError(f'Unknown policy {name}')
 
 
-def max_q(features: np.array, model: np.array) -> Tuple[float, List[int]]:
+def max_q(features: np.array, model: np.array) -> Tuple[float, List[int], List[float]]:
     q_values = np.dot(features, model)
     q_max = np.max(q_values)
     a_max = np.where(q_values == q_max)[0]  # best actions
 
-    return q_max, a_max
+    return q_max, a_max, q_values
 
 
 def td_update(model: np.array, t: Transition) -> np.array:
@@ -70,7 +70,7 @@ def td_update(model: np.array, t: Transition) -> np.array:
     :return:
     """
     updated_weights = np.zeros(len(model))
-    q_max, _ = max_q(t.next_state_features, model)
+    q_max, _, _ = max_q(t.next_state_features, model)
 
     state_action = t.state_features[ACTIONS.index(t.action), :]
     for _ in range(len(model)):

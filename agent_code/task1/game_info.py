@@ -1,8 +1,21 @@
 from typing import *
 
 import numpy as np
+from scipy.spatial.distance import cityblock
 
+from agent_code.task1.agent_settings import *
 from settings import *
+
+
+def beautify_output(field: np.array, features: np.array, model: np.array, q_values: np.array):
+    out = ""
+    if env.PRINT_FIELD:
+        out += f"Field {field}\n"
+    out += f"Model {[round(weight, 4) for weight in model]}\n"
+    out += "Feature   " + "\t ".join([f'{i}' for i in range(len(features[0]))]) + "\n"
+    for i in range(len(features)):
+        out += f"{ACTIONS[i]:6}: {features[i]} : {q_values[i]}\n"
+    return out[:-1].replace("0.", " .")
 
 
 def get_new_position(action: str, pos: Tuple[int, int]) -> Tuple[int, int]:
@@ -26,6 +39,20 @@ def get_neighbor_positions(pos: Tuple[int, int]) -> List[Tuple[int, int]]:
         (x + 1, y),
         (x, y - 1),
         (x - 1, y)
+    ]
+
+
+def get_extended_neighbor_positions(pos: Tuple[int, int]) -> List[Tuple[int, int]]:
+    x, y = pos
+    return [
+        (x, y + 1),
+        (x, y + 2),
+        (x + 1, y),
+        (x + 2, y),
+        (x, y - 1),
+        (x, y - 2),
+        (x - 1, y),
+        (x - 2, y),
     ]
 
 
@@ -135,16 +162,28 @@ def is_crate_nearby(field: np.array, pos: Tuple[int, int]) -> bool:
     return False
 
 
-def is_opponent_nearby(pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]]):
-    neighbor_fields = get_neighbor_positions(pos)
-    for neighbor_pos in neighbor_fields:
+def is_opponent_nearby(pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]]) -> bool:
+    # extended_neighbors = get_extended_neighbor_positions(pos)
+    extended_neighbors = get_neighbor_positions(pos)
+    for neighbor_pos in extended_neighbors:
         if neighbor_pos in enemies_pos:
             return True
 
     return False
 
+def get_dangerous_fields(field: np.ndarray) -> List[Tuple[int, int]]:
+    pass
 
-def wait_is_intelligent(field: np.array, bomb_fields: List[Tuple[int, int]], pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]]) -> bool:
+def get_nearby_enemies(pos: Tuple[int, int], enemies: List[Tuple[str, int, bool, Tuple[int, int]]]):
+    enemies_nearby = []
+    for _, _, bomb_action_available, enemy_pos in enemies:
+        distance = cityblock([pos[0], pos[1]], [enemy_pos[0], enemy_pos[1]])
+        if distance < 6 and bomb_action_available:
+            enemies_nearby.append(enemy_pos)
+    return enemies_nearby
+
+
+def wait_is_intelligent(field: np.ndarray, bomb_fields: List[Tuple[int, int]], pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]]) -> bool:
     """
     Checks if waiting is intelligent in the current position. It is intelligent when any other action
     might end up in dead (moving into bomb radius or explosion map)
@@ -165,7 +204,7 @@ def wait_is_intelligent(field: np.array, bomb_fields: List[Tuple[int, int]], pos
     return True
 
 
-def wait_is_intelligent_alternative(field: np.array, bomb_fields: List[Tuple[int, int]], pos: Tuple[int, int]) -> bool:
+def wait_is_intelligent_alternative(field: np.ndarray, bomb_fields: List[Tuple[int, int]], pos: Tuple[int, int]) -> bool:
     if len(bomb_fields) == 0:
         return False
 
@@ -184,7 +223,7 @@ def wait_is_intelligent_alternative(field: np.array, bomb_fields: List[Tuple[int
     return True
 
 
-def escape_possible(field: np.array, bomb_fields: List[Tuple[int, int]], pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]]) -> bool:
+def escape_possible(field: np.ndarray, bomb_fields: List[Tuple[int, int]], pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]]) -> bool:
     own_radius = get_blast_radius(field, [(pos, 0)])
     bomb_fields = bomb_fields + own_radius
 
@@ -200,7 +239,7 @@ def escape_possible(field: np.array, bomb_fields: List[Tuple[int, int]], pos: Tu
     return min_dist <= BOMB_TIMER
 
 
-def escape_possible_alternative(field: np.array, pos: Tuple[int, int]) -> bool:
+def escape_possible_alternative(field: np.ndarray, pos: Tuple[int, int]) -> bool:
     radius = get_blast_radius(field, [(pos, 0)])
 
     reachable_free_fields = give_reachable_free_fields(field, pos, [])
@@ -214,7 +253,7 @@ def escape_possible_alternative(field: np.array, pos: Tuple[int, int]) -> bool:
         return False
 
 
-def give_reachable_free_fields(field: np.array, pos: Tuple[int, int], current_free_fields: List[Tuple[int, int]]):
+def give_reachable_free_fields(field: np.ndarray, pos: Tuple[int, int], current_free_fields: List[Tuple[int, int]]):
     # list with reachable free fields
     all_free_fields = field == 0
     reachable_free_fields = current_free_fields
