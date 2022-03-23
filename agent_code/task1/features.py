@@ -273,7 +273,7 @@ def feat_9(field: np.ndarray, bomb_fields: List[Tuple[int, int]], bomb_action_po
 
 def feat_10(field: np.ndarray, agent_pos: Tuple[int, int], bomb_action_possible: bool, enemies_nearby: List[Tuple[int, int]]) -> np.ndarray:
     """
-    Agent moves away if enemies are around that have a bomb action available
+    Agent moves away if he has no bom action available and enemies are around having a bomb action available
     - can contain multiple 1s
     """
     feature = np.zeros(len(ACTIONS))
@@ -298,7 +298,7 @@ def feat_11(field: np.ndarray, agent_pos: Tuple[int, int], enemies: List[Tuple[i
     """
     feature = np.zeros(len(ACTIONS))
 
-    if len(crates) > 0 or len(coins) > 0:  # TODO check if there are any coins left
+    if len(crates) > 5 or len(coins) > 2:  # TODO check if there are any coins left
         return feature
 
     if len(enemies) > 0:
@@ -313,6 +313,7 @@ def feat_11(field: np.ndarray, agent_pos: Tuple[int, int], enemies: List[Tuple[i
 
     return feature
 
+
 def feat_12(field: np.ndarray, agent_pos: Tuple[int, int], bomb_action_possible: bool, enemies_pos: List[Tuple[int, int]]) -> np.ndarray:
     """
     Agent sets bomb if it leads to a safe dead of an opponent.
@@ -320,11 +321,9 @@ def feat_12(field: np.ndarray, agent_pos: Tuple[int, int], bomb_action_possible:
     feature = np.zeros(len(ACTIONS))
     if bomb_action_possible:
         # check for fields that only have one direction for escaping
+        safe_deads_exits = get_safe_dead_for_enemies(field, enemies_pos)
 
-        # get dead_end_exists
-        dead_end_exits = get_dead_end_exits(field, enemies_pos)
-
-        if dead_end_exit_reachable(dead_end_exits, agent_pos):
+        if safe_dead_exits_reachable(safe_deads_exits, agent_pos):
             feature[ACTIONS.index("BOMB")] = 1
 
     return feature

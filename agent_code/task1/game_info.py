@@ -41,33 +41,36 @@ def get_neighbor_positions(pos: Tuple[int, int]) -> List[Tuple[int, int]]:
         (x - 1, y)
     ]
 
-def dead_end_exit_reachable(dead_end_exits: List[Tuple[int, int]], agent_pos: Tuple[int, int]):
-    if len(dead_end_exits) > 0:
-        neighbor_fields = get_neighbor_positions(agent_pos)
-        if neighbor_fields in dead_end_exits:
-            return True
-    else:
-        return False
 
-
-def get_dead_end_exits(field: np.array, enemies_pos: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
-    dead_ends = [(x, y) for x, y in np.ndindex(field.shape) if field[x, y] == 0 and (
-            [field[x + 1, y], field[x - 1, y], field[x, y + 1], field[x, y - 1]].count(0) == 1)]
-
-    dead_end_exits = []
-    for enemy in enemies_pos:
-        if enemy in dead_ends:
-            dead_end_exit = get_dead_end_exit(field, enemy)
-            dead_end_exits.append(dead_end_exit)
-    return dead_end_exits
-
-
-def get_dead_end_exit(field: np.array, pos: Tuple[int, int]) -> Tuple[int, int]:
+def get_safe_dead_exit(field: np.array, pos: Tuple[int, int]) -> Tuple[int, int]:
     neighbors = get_neighbor_positions(pos)
 
     for (x, y) in neighbors:
         if field[x, y] == 0:
-            return (x, y)
+            return x, y
+
+
+def get_safe_dead_for_enemies(field: np.array, enemies_pos: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+    safe_deads: List[Tuple[Tuple[int, int], Tuple[int, int]]] = []
+    for x, y in np.ndindex(field.shape):
+        if field[x, y] == 0 and ([field[x + 1, y], field[x - 1, y], field[x, y + 1], field[x, y - 1]].count(0) == 1):
+            safe_deads.append((x, y))
+
+    safe_deads_exits = []
+    for enemy in enemies_pos:
+        if enemy in safe_deads:
+            safe_dead_exit = get_safe_dead_exit(field, enemy)
+            safe_deads_exits.append(safe_dead_exit)
+    return safe_deads_exits
+
+
+def safe_dead_exits_reachable(safe_dead_exits: List[Tuple[int, int]], agent_pos: Tuple[int, int]):
+    if len(safe_dead_exits) > 0:
+        neighbor_fields = get_neighbor_positions(agent_pos)
+        if neighbor_fields in safe_dead_exits:
+            return True
+    else:
+        return False
 
 
 def get_extended_neighbor_positions(pos: Tuple[int, int]) -> List[Tuple[int, int]]:
@@ -151,8 +154,7 @@ def look_for_targets(free_space, start, targets, logger=None) -> Tuple[Tuple[int
 def get_blast_radius(field: np.array, bombs) -> List[Tuple[int, int]]:
     radius = []
     for pos, countdown in bombs:
-        x = pos[0]
-        y = pos[1]
+        x, y = pos
         radius.append((x, y))
         for i in range(1, BOMB_POWER + 1):
             if field[x + i, y] == -1:

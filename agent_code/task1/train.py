@@ -14,7 +14,7 @@ def setup_training(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
-    self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
+    self.transitions = []
     self.enemy_transitions = dict(deque(maxlen=ENEMY_TRANSITION_HISTORY_SIZE))
     self.episode = 0
     self.rewards = np.zeros(env.NUMBER_OF_ROUNDS)
@@ -25,6 +25,7 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
     custom_events = []
     bomb_fields = get_bomb_fields(old_game_state["field"], old_game_state["bombs"], old_game_state["explosion_map"])
     enemies_pos = [enemy[3] for enemy in old_game_state["others"]]
+    crates = [(x, y) for x, y in np.ndindex(old_game_state["field"].shape) if (old_game_state["field"][x, y] == 1) or (x, y)]
 
     for other_agent in old_game_state["others"]:
         if old_game_state["step"] == 1 and self.episode == 0:
@@ -45,16 +46,15 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
             custom_events.append(DID_NOT_COLLECT_COIN)
 
     # Feature 3
-    #if valid_action(old_game_state, self_action, bomb_fields, enemies_pos):
+    # if valid_action(old_game_state, self_action, bomb_fields, enemies_pos):
     #    custom_events.append(VALID_ACTION)
-    #else:
+    # else:
     #    custom_events.append(INVALID_ACTION)
 
     # Feature 3
     # if self_action == "WAIT":
     #     if wait_is_intelligent(old_game_state["field"], bomb_fields, old_game_state["self"][3]):
     #         custom_events.append(WAIT_ACTION_IS_INTELLIGENT)
-
 
     # Feature 4
     if old_game_state["self"][3] in get_blast_radius(old_game_state["field"], old_game_state["bombs"]):
@@ -93,8 +93,8 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
         if self_action == "BOMB":
             custom_events.append(PLACED_BOMB_NEXT_TO_OPPONENT)
 
-    if useless_bomb_dropped(old_game_state, self_action):
-        custom_events.append(SET_USELESS_BOMB)
+    if placed_useless_bomb(old_game_state, self_action, bomb_fields, enemies_pos):
+        custom_events.append(PLACED_USELESS_BOMB)
 
     # Feature 10
     enemies_nearby = get_nearby_enemies(old_game_state["self"][3], old_game_state["others"])
@@ -105,21 +105,22 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
             custom_events.append(MOVED_AWAY_FROM_DANGEROUS_ENEMY)
 
     # Feature 11
-    crates = [(x, y) for x, y in np.ndindex(old_game_state["field"].shape) if (old_game_state["field"][x, y] == 1) or (x, y)]
     if len(crates) == 0 and len(old_game_state["coins"]) == 0 and len(enemies_pos) > 0:
         if moved_towards_enemy(old_game_state, new_game_state, enemies_pos, crates):
             custom_events.append(MOVED_TOWARDS_ENEMY)
         else:
             custom_events.append(MOVED_AWAY_FROM_ENEMY)
-    return custom_events
 
     # Feature 12
-    dead_end_exits = get_dead_end_exits(old_game_state["field"], enemies_pos)
-    if dead_end_exit_reachable(dead_end_exits, old_game_state["self"][3]):
-        if kill_enemy_in_dead_end(self_action):
-            custom_events.append(KILLED_ENEMY_IN_DEAD_END)
+    dead_end_exits = get_safe_dead_for_enemies(old_game_state["field"], enemies_pos)
+    if safe_dead_exits_reachable(dead_end_exits, old_game_state["self"][3]):
+        if self_action == "BOMB":
+            custom_events.append(KILLED_ENEMY_IN_SAFE_DEAD)
         else:
-            custom_events.append(MISSED_KILL_ENEMY_IN_DEAD_END)
+            custom_events.append(DID_NOT_KILL_ENEMY_IN_SAFE_DEAD)
+
+    return custom_events
+
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
     """
@@ -138,6 +139,7 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     :param new_game_state: The state the agent is in now.
     :param events: The events that occurred when going from  `old_game_state` to `new_game_state`
     """
+
     if old_game_state is None:
         return None
 
@@ -145,8 +147,21 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     current_rewards = reward_from_events(self, events)
     self.rewards[self.episode] += current_rewards
     transition = Transition(old_game_state, self_action, new_game_state, current_rewards)
-    self.model = q.td_update(self.model, transition)
     self.transitions.append(transition)
+
+    if EXPERIENCE_REPLAY_ACTIVATED:
+        if len(self.transitions) == EXPERIENCE_REPLAY_K:
+            current_transitions = self.transitions.copy()
+            np.random.shuffle(current_transitions)
+
+            for _ in range(0, int(EXPERIENCE_REPLAY_K / EXPERIENCE_REPLAY_BATCH_SIZE)):
+                current_batch = current_transitions[:EXPERIENCE_REPLAY_BATCH_SIZE]
+                current_transitions = current_transitions[EXPERIENCE_REPLAY_BATCH_SIZE:]
+
+                for batch_transition in current_batch:
+                    self.model = q.td_update(self.model, batch_transition)
+    else:
+        self.model = q.td_update(self.model, transition)
 
     self.logger.debug(f'Encountered game event(s) {", ".join(map(repr, events))} in step {new_game_state["step"]}')
 
@@ -174,7 +189,7 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     self.models[self.episode] = self.model
 
     last_transition = Transition(last_game_state, last_action, None, current_rewards)
-    self.transitions.append(last_transition)
+    # self.transitions.append(last_transition)
     fake_q_values = np.zeros(self.model.shape)
     self.logger.debug(beautify_output(last_transition.printable_field, last_transition.state_features, self.model, fake_q_values))
 
@@ -195,15 +210,15 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
 
 def reward_from_events(self, events: List[str]) -> int:
     """
-    *This is not a required function, but an idea to structure your code.*
-
     Here you can modify the rewards your agent get to en/discourage
     certain behavior.
     """
     reward_sum = 0
     for event in events:
-        if event in REWARDS:
-            reward_sum += REWARDS[event]
+        if event in env.REWARDS:
+            reward_sum += env.REWARDS[event]
+        else:
+            self.logger.info(f"ERROR: REWARD not in LIST {event}")
     self.logger.info(f"Awarded {reward_sum} for events {', '.join(events)}")
     return reward_sum
 
@@ -235,6 +250,7 @@ def valid_action(old_state, self_action, bomb_fields, enemies_pos) -> bool:
             return True
 
     return False
+
 
 def moved_out_of_blast_radius(old_state, new_state, bomb_fields, enemies_pos) -> bool:
     """
@@ -304,7 +320,7 @@ def moved_towards_crate(old_state, new_state) -> bool:
     return (expected_new_x, expected_new_y) == (actual_new_x, actual_new_y)
 
 
-def useless_bomb_dropped(old_state, last_action):
+def placed_useless_bomb(old_state, last_action, bomb_fields, enemies_pos):
     """
     Check if the agent has set a bomb that cannot destroy a crate or any another agent
 
@@ -314,32 +330,28 @@ def useless_bomb_dropped(old_state, last_action):
     4. Check if other agent was in blast radius
     5. If agent cannot escapse return also True
     """
-    if last_action == "BOMB":
-        field = old_state["field"]
-        bomb_x, bomb_y = old_state["self"][3]
-
-        bomb = (bomb_x, bomb_y)
-        blast_radius_of_bomb = get_blast_radius(old_state["field"], [(bomb, 0)])
-
-        if not escape_possible_alternative(field, bomb):
-            return True
-
-        # Check if at least one crate is destroyed in bomb radius
-        crates = [(x, y) for x, y in np.ndindex(field.shape) if (field[x, y] == 1)]
-        for crate in crates:
-            if crate in blast_radius_of_bomb:
-                return False
-
-        # Check if at least one opponent is in the bomb radius
-        opponents = old_state["others"]
-        for opponent in opponents:
-            opponent_x, opponent_y = opponent[3]
-            if (opponent_x, opponent_y) in blast_radius_of_bomb:
-                return False
-
-        return True
-    else:
+    if last_action != "BOMB":
         return False
+
+    field = old_state["field"]
+    agent_pos = old_state["self"][3]
+
+    blast_radius = get_blast_radius(old_state["field"], [(agent_pos, 0)])
+
+    if not escape_possible(field, bomb_fields, agent_pos, enemies_pos):
+        return True
+
+    # Check if at least one crate is destroyed in bomb radius
+    crates = [(x, y) for x, y in np.ndindex(field.shape) if (field[x, y] == 1)]
+    for crate in crates:
+        if crate in blast_radius:
+            return False
+
+    for enemy_pos in enemies_pos:
+        if enemy_pos in blast_radius:
+            return False
+
+    return True
 
 
 def moved_away_from_dangerous_enemies(old_state, new_state, enemies_nearby) -> bool:
@@ -371,12 +383,3 @@ def moved_towards_enemy(old_state, new_state, enemies, crates) -> bool:
     actual_new_x, actual_new_y = new_state["self"][3]
 
     return (expected_new_x, expected_new_y) == (actual_new_x, actual_new_y)
-
-def kill_enemy_in_dead_end(self_action) -> bool:
-    """
-    Feature 12:
-    """
-    if self_action == "BOMB":
-        return True
-    else:
-        return False
