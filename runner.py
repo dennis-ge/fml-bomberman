@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import random
@@ -59,11 +60,6 @@ def set_env(env: EnvVariables, rewards: List[Tuple[str, int]]):
             os.environ[item[0]] = f"{item[1]}"
 
 
-# [ 2,2,]
-# [1,3]
-# [2,2,1]
-
-
 def append_list_to_list(first: list, second: list) -> list:
     result = []
     for item in second:
@@ -81,51 +77,11 @@ def get_rewards(n_samples: int) -> List[List[Tuple[str, int]]]:
         rewards = []
         for reward in REWARDS_LIST:
             choice = np.random.choice(reward[2])
-            rewards.append((reward[0], choice))
+            rewards.append((reward[0], int(choice)))
         all_rewards.append(rewards)
 
     return all_rewards
-    # for top_level in REWARDS_LIST:
-    #
-    #     curr = top_level[2]
-    #     for i in range(len(REWARDS_LIST)):
-    #         second_level = REWARDS_LIST[i]
-    #         if top_level == second_level:
-    #             continue
 
-    # unique_combinations = []
-    # permut = itertools.permutations(curr, len(second_level[2]))
-    # for comb in permut:
-    #     zipped = zip(comb, second_level[2])
-    #     unique_combinations.append(list(zipped))
-    # unique_combinations = []
-
-    # Extract Combination Mapping in two lists
-    # using zip() + product()
-    # unique_combinations = list(list(zip(curr, element))
-    #                            for element in itertools.product(second_level[2], repeat=len(curr)))
-    #
-    # curr = list(unique_combinations[0][0])
-
-    # for top_level in REWARDS_LIST:
-    #     top_level_perm = []
-    #     idxs = np.zeros(len(REWARDS_LIST), dtype=int)
-    #     for _ in range(0, len(top_level[2])):
-    #         curr_perm = []
-    #         i = 0
-    #         curr = REWARDS_LIST[i]
-    #         while curr != REWARDS_LIST[-1:][0]:
-    #             if len(curr[2]) > idxs[i]:
-    #                 curr_perm.append(curr[2][idxs[i]])
-    #                 idxs[i] += 1
-    #             else:
-    #                 curr_perm.append(curr[2][len(curr[2]-1)])
-    #
-    #             i += 1
-    #             curr = REWARDS_LIST[i]
-    #         top_level_perm.append(curr_perm)
-    #
-    #     all_permutations.append(top_level_perm)
 
 
 #
@@ -163,26 +119,26 @@ def play_iteration(iteration: GameIteration, env: EnvVariables, rewards: List[Tu
     play(game_args)
 
 
-def play_game(scenario: str, agents: str, env: EnvVariables, all_rewards: List[List[Tuple[str, int]]]):
-    """
-    play x iterations of the game with the given settings
-    """
-
+def play_game(scenario: str, agents: str,rounds,  all_rewards: List[List[Tuple[str, int]]]):
     def execute(e, r, **kwargs):
         logger.info("Executing iteration", extra=kwargs)
         logger.info("Game rewards for iteration", extra=dict(r))
+        with open(f"results/{e.match_id}_rewards.json", "w") as file:
+            r = dict(r)
+            json_string = json.dumps(r)
+
+            json.dump(json_string, file)
         it = GameIteration(**kwargs)
         play_iteration(it, e, r)
 
     for rewards in all_rewards:
-        env.match_id = f"task1-{unique_id()}"
-        env.model_name = f"{env.match_id}.pt"
-        mn = create_match_name(env.match_id, agents)
-        execute(env, rewards, agents=agents, match_name=mn, n_rounds=env.n_rounds, scenario=scenario, save_stats=f"results/{mn}.json",
+        id = unique_id()
+        env = EnvVariables(policy="epsilon_greedy", gamma=0.8, n_rounds=rounds, match_id=id, model_name=f"{id}.pt")
+        execute(env, rewards, agents=agents, match_name=env.match_id, n_rounds=env.n_rounds, scenario=scenario, save_stats=f"results/{env.match_id}.json",
                 log_dir=os.path.dirname(os.path.abspath(__file__)) + "/logs", seed=False)
 
         first_agent = agents.split(" ")[0]
-        shutil.copy2(f'dump/models/{env.model_name}', f'agent_code/{first_agent}/models/{env.model_name}')
+        # shutil.copy2(f'dump/models/{env.model_name}', f'agent_code/{first_agent}/models/{env.model_name}')
 
 
 #
@@ -199,11 +155,9 @@ def main(argv=None):
 
     agents = args.agent + get_opponents(args.o)
 
-    env = EnvVariables(policy="epsilon_greedy", gamma=0.8, n_rounds=args.rounds, match_id="", model_name="")
+    all_rewards = get_rewards(1)
 
-    all_rewards = get_rewards(20)
-
-    play_game(agents=agents, scenario=args.s, env=env, all_rewards=all_rewards)
+    play_game(agents=agents, scenario=args.s, rounds=args.rounds, all_rewards=all_rewards)
 
 
 if __name__ == "__main__":

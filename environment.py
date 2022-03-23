@@ -82,7 +82,7 @@ class GenericWorld:
             match_prefix = f"{self.args.match_name} | "
         else:
             match_prefix = ""
-        self.round_id = f'{match_prefix}Round {new_round:02d} ({datetime.now().strftime("%Y-%m-%d %H-%M-%S")})'
+        self.round_id = new_round
 
         # Arena with wall and crate layout
         self.arena, self.coins, self.active_agents = self.build_arena()
