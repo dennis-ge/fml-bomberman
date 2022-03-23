@@ -125,15 +125,13 @@ def play_game(scenario: str, agents: str,rounds,  all_rewards: List[List[Tuple[s
         logger.info("Game rewards for iteration", extra=dict(r))
         with open(f"results/{e.match_id}_rewards.json", "w") as file:
             r = dict(r)
-            json_string = json.dumps(r)
-
-            json.dump(json_string, file)
+            json.dump(r, file)
         it = GameIteration(**kwargs)
         play_iteration(it, e, r)
 
     for rewards in all_rewards:
         id = unique_id()
-        env = EnvVariables(policy="epsilon_greedy", gamma=0.8, n_rounds=rounds, match_id=id, model_name=f"{id}.pt")
+        env = EnvVariables(policy="epsilon_greedy", gamma=0.99, n_rounds=rounds, match_id=id, model_name=f"{id}.pt")
         execute(env, rewards, agents=agents, match_name=env.match_id, n_rounds=env.n_rounds, scenario=scenario, save_stats=f"results/{env.match_id}.json",
                 log_dir=os.path.dirname(os.path.abspath(__file__)) + "/logs", seed=False)
 
@@ -155,7 +153,7 @@ def main(argv=None):
 
     agents = args.agent + get_opponents(args.o)
 
-    all_rewards = get_rewards(1)
+    all_rewards = get_rewards(150)
 
     play_game(agents=agents, scenario=args.s, rounds=args.rounds, all_rewards=all_rewards)
 

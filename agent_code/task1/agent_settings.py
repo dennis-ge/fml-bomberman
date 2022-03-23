@@ -56,7 +56,7 @@ class EnvSettings:
         self.WEIGHTS_NAME = f"../../dump/weights/{self.MATCH_ID}.pt"
         self.POLICY_NAME = os.environ.get("POLICY", GREEDY_POLICY_NAME)
         self.NUMBER_OF_ROUNDS = int(os.getenv("N_ROUNDS", 100))
-        self.EPSILON = float(os.environ.get("EPS", 0.4))  # eps for epsilon greedy policy
+        self.EPSILON = float(os.environ.get("EPS", 0.3))  # eps for epsilon greedy policy
         self.EPSILON_START = float(os.environ.get("EPS_START", 1))
         self.EPSILON_END = float(os.environ.get("EPS_MIN", 0.05))
         self.EPSILON_DECAY = float(os.environ.get("EPS_DECAY", 0.9994))

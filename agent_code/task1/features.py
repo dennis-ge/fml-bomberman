@@ -4,7 +4,6 @@ from agent_code.task1.game_info import *
 def state_to_features(game_state: dict) -> Union[Tuple[None, None], Tuple[np.ndarray, str]]:
     """
     Converts the game state to a feature vector.
-
     :param game_state:  A dictionary describing the current game board.
     :return: np.ndarray
     """
