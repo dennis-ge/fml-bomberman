@@ -105,7 +105,7 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
             custom_events.append(MOVED_AWAY_FROM_DANGEROUS_ENEMY)
 
     # Feature 11
-    if len(crates) == 0 and len(old_game_state["coins"]) == 0 and len(enemies_pos) > 0:
+    if len(crates) <= 5 and len(old_game_state["coins"]) <= 2 and len(enemies_pos) > 0:
         if moved_towards_enemy(old_game_state, new_game_state, enemies_pos, crates):
             custom_events.append(MOVED_TOWARDS_ENEMY)
         else:
@@ -375,7 +375,7 @@ def moved_towards_enemy(old_state, new_state, enemies, crates) -> bool:
     """
     Feature 11:
     """
-    feature_old = feat_11(old_state["field"], old_state["self"][3], enemies, crates, old_state["coins"])
+    feature_old = feat_11(old_state["field"], old_state["self"][3], old_state["self"][2], enemies, crates, old_state["coins"])
 
     idx = np.where(feature_old == 1)[0][0]
     expected_new_x, expected_new_y = get_new_position(ACTIONS[idx], old_state["self"][3])

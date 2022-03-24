@@ -2,6 +2,7 @@ import os
 from datetime import datetime, timezone
 
 from agent_code.task1.rewards import *
+
 #
 # General settings
 #
@@ -10,7 +11,7 @@ AGENT_NAME = "task1"
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 TIMESTAMP = datetime.now(timezone.utc).strftime("%m-%dT%H:%M")
 PROD_MODEL_NAME = f"./models/{AGENT_NAME}-eps.pt"  # When a model is trained with enough rounds, we move it into the internal models directory
-SET_REWARDS_OVER_ENV = True # False for production
+SET_REWARDS_OVER_ENV = True  # False for production
 #
 # ML/Hyperparameter
 #
@@ -56,13 +57,13 @@ class EnvSettings:
         self.WEIGHTS_NAME = f"../../dump/weights/{self.MATCH_ID}.pt"
         self.POLICY_NAME = os.environ.get("POLICY", GREEDY_POLICY_NAME)
         self.NUMBER_OF_ROUNDS = int(os.getenv("N_ROUNDS", 100))
-        self.EPSILON = float(os.environ.get("EPS", 0.3))  # eps for epsilon greedy policy
+        self.EPSILON = float(os.environ.get("EPS", 0.12))  # eps for epsilon greedy policy
+        self.BIAS = float(os.environ.get("BIAS", 0.1))
+        self.DISCOUNT_FACTOR = float(os.environ.get("GAMMA", 0.92))  # gamma discount factor
+        self.LEARNING_RATE = float(os.environ.get("ALPHA", 0.05))  # alpha learning rate
         self.EPSILON_START = float(os.environ.get("EPS_START", 1))
         self.EPSILON_END = float(os.environ.get("EPS_MIN", 0.05))
         self.EPSILON_DECAY = float(os.environ.get("EPS_DECAY", 0.9994))
-        self.LEARNING_RATE = float(os.environ.get("ALPHA", 0.025))  # alpha learning rate
-        self.DISCOUNT_FACTOR = float(os.environ.get("GAMMA", 0.99))  # gamma discount factor
-        self.BIAS = float(os.environ.get("BIAS", 0.1))
 
         self.REWARDS = {}
         if SET_REWARDS_OVER_ENV:

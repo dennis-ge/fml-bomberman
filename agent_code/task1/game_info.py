@@ -194,8 +194,8 @@ def is_crate_nearby(field: np.array, pos: Tuple[int, int]) -> bool:
 
 
 def is_opponent_nearby(pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]]) -> bool:
-    # extended_neighbors = get_extended_neighbor_positions(pos)
-    extended_neighbors = get_neighbor_positions(pos)
+    extended_neighbors = get_extended_neighbor_positions(pos)
+    # extended_neighbors = get_neighbor_positions(pos)
     for neighbor_pos in extended_neighbors:
         if neighbor_pos in enemies_pos:
             return True

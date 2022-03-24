@@ -37,7 +37,7 @@ def state_to_features(game_state: dict) -> Union[Tuple[None, None], Tuple[np.nda
         feat_8(field, bomb_action_possible, agent_pos),
         feat_9(field, bomb_fields, bomb_action_possible, agent_pos, enemies_pos),
         feat_10(field, agent_pos, bomb_action_possible, enemies_nearby),
-        feat_11(field, agent_pos, enemies_pos, crates, coins),
+        feat_11(field, agent_pos, bomb_action_possible, enemies_pos, crates, coins),
         feat_12(field, agent_pos, bomb_action_possible, enemies_pos)
     ))
 
@@ -244,7 +244,7 @@ def feat_8(field: np.ndarray, bomb_action_possible: bool, agent_pos: Tuple[int, 
     best_direction, _ = look_for_targets(free_space, agent_pos, crates)
 
     for idx, action in enumerate(ACTIONS):
-        if action == "BOMB" or action == "WAIT":
+        if action == "BOMB": # or action == "WAIT":
             continue
 
         new_x, new_y = get_new_position(action, agent_pos)
@@ -290,7 +290,7 @@ def feat_10(field: np.ndarray, agent_pos: Tuple[int, int], bomb_action_possible:
     return feature
 
 
-def feat_11(field: np.ndarray, agent_pos: Tuple[int, int], enemies: List[Tuple[int, int]], crates: List[Tuple[int, int]], coins: List[Tuple[int, int]]) -> np.ndarray:
+def feat_11(field: np.ndarray, agent_pos: Tuple[int, int], bomb_action_available: bool, enemies: List[Tuple[int, int]], crates: List[Tuple[int, int]], coins: List[Tuple[int, int]]) -> np.ndarray:
     """
     Agent moves to enemy
     - can contain multiple 1s
@@ -299,6 +299,10 @@ def feat_11(field: np.ndarray, agent_pos: Tuple[int, int], enemies: List[Tuple[i
 
     if len(crates) > 5 or len(coins) > 2:  # TODO check if there are any coins left
         return feature
+
+    # don't move to enemy when bomb action available
+    # if bomb_action_available:
+    #     return feature
 
     if len(enemies) > 0:
         free_space = field == 0

@@ -5,9 +5,8 @@ import random
 import shutil
 import string
 from argparse import ArgumentParser
-from collections import namedtuple
 from datetime import datetime, timezone
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import numpy as np
 from pythonjsonlogger import jsonlogger
@@ -21,8 +20,8 @@ TIMESTAMP = datetime.now(timezone.utc).strftime("%dT%H:%M")
 #
 # Helper Methods
 #
-def setup_logger() -> logging.Logger:
-    logger = logging.getLogger('Trainer')
+def get_logger(name: str) -> logging.Logger:
+    logger = logging.getLogger(name)
     logger.setLevel("DEBUG")
 
     log_handler = logging.StreamHandler()
@@ -32,32 +31,6 @@ def setup_logger() -> logging.Logger:
     logger.info('Initializing Logger')
 
     return logger
-
-
-logger = setup_logger()
-
-
-def unique_id(chars=string.ascii_uppercase + string.digits, N=10):
-    return ''.join(random.choice(chars) for _ in range(N))
-
-
-def create_match_name(match_id, agents: str):
-    return f"{match_id}-{'-vs-'.join(agents.split(' '))}"
-
-
-EnvVariables = namedtuple("EnvironmentalVariables", ["policy", "model_name", "n_rounds", "gamma", "match_id"])
-
-
-def set_env(env: EnvVariables, rewards: List[Tuple[str, int]]):
-    os.environ["POLICY"] = env.policy
-    os.environ["MODEL_NAME"] = env.model_name
-    os.environ["N_ROUNDS"] = f"{env.n_rounds}"
-    os.environ["GAMMA"] = f"{env.gamma}"
-    os.environ["MATCH_ID"] = env.match_id
-
-    if len(rewards) > 0:
-        for item in rewards:
-            os.environ[item[0]] = f"{item[1]}"
 
 
 def append_list_to_list(first: list, second: list) -> list:
@@ -83,10 +56,14 @@ def get_rewards(n_samples: int) -> List[List[Tuple[str, int]]]:
     return all_rewards
 
 
+def unique_id(chars=string.ascii_uppercase + string.digits, N=4):
+    return ''.join(random.choice(chars) for _ in range(N))
 
-#
-# Game related
-#
+
+def create_match_name(match_id, agents: str):
+    return f"{match_id}-{'-vs-'.join(agents.split(' '))}"
+
+
 def get_opponents(arg):
     switch = {
         "": "",
@@ -97,46 +74,93 @@ def get_opponents(arg):
     return switch.get(arg)
 
 
-GameIteration = namedtuple("GameIteration", ["agents", "match_name", "n_rounds", "log_dir", "save_stats",
-                                             "scenario", "seed"])
+class EnvVariables:
+
+    def __init__(self, policy: str = None, model_name: str = None, n_rounds: int = None, gamma: float = None,
+                 match_id: str = None, stats_file: str = None, eps: float = None, alpha: float = None):
+        self.policy = policy
+        self.model_name = model_name
+        self.n_rounds = n_rounds
+        self.gamma = gamma
+        self.eps = eps
+        self.alpha = alpha
+        self.match_id = match_id
+        self.stats_file = stats_file
+
+    def set(self, rewards: Union[List[Tuple[str, int]], None]):
+        os.environ["POLICY"] = self.policy
+        os.environ["MODEL_NAME"] = self.model_name
+        os.environ["N_ROUNDS"] = str(self.n_rounds)
+        os.environ["GAMMA"] = str(self.gamma)
+        os.environ["EPS"] = str(self.eps)
+        os.environ["ALPHA"] = str(self.alpha)
+        os.environ["MATCH_ID"] = self.match_id
+
+        if rewards:
+            for item in rewards:
+                os.environ[item[0]] = f"{item[1]}"
 
 
-def play_iteration(iteration: GameIteration, env: EnvVariables, rewards: List[Tuple[str, int]]):
-    """
-    Plays one iteration of the game with the given settings
-    """
+def play_iteration(agents: str, n_rounds: int, scenario: str, match_name: str, stats_file: str):
     game_args = ["play", "--no-gui"]
-    game_args.extend(["--agents", *iteration.agents.split(" ")])
-    game_args.extend(["--n-rounds", str(iteration.n_rounds)])
-    game_args.extend(["--log-dir", iteration.log_dir])
-    game_args.extend(["--scenario", iteration.scenario])
-    game_args.extend(["--seed", str(42)]) if iteration.seed else []
-    game_args.extend(["--match-name", iteration.match_name])
-    game_args.extend(["--save-stats", iteration.save_stats])
+    game_args.extend(["--agents", *agents.split(" ")])
+    game_args.extend(["--n-rounds", str(n_rounds)])
+    game_args.extend(["--scenario", scenario])
+    game_args.extend(["--match-name", match_name])
+    game_args.extend(["--save-stats", stats_file])
     game_args.extend(["--train", str(1)])
 
-    set_env(env, rewards)
     play(game_args)
 
 
-def play_game(scenario: str, agents: str,rounds,  all_rewards: List[List[Tuple[str, int]]]):
-    def execute(e, r, **kwargs):
-        logger.info("Executing iteration", extra=kwargs)
-        logger.info("Game rewards for iteration", extra=dict(r))
-        with open(f"results/{e.match_id}_rewards.json", "w") as file:
-            r = dict(r)
-            json.dump(r, file)
-        it = GameIteration(**kwargs)
-        play_iteration(it, e, r)
+class Runner:
 
-    for rewards in all_rewards:
-        id = unique_id()
-        env = EnvVariables(policy="epsilon_greedy", gamma=0.99, n_rounds=rounds, match_id=id, model_name=f"{id}.pt")
-        execute(env, rewards, agents=agents, match_name=env.match_id, n_rounds=env.n_rounds, scenario=scenario, save_stats=f"results/{env.match_id}.json",
-                log_dir=os.path.dirname(os.path.abspath(__file__)) + "/logs", seed=False)
+    def __init__(self, scenario: str, agent: str, opponents: str, n_rounds: int, runner_id: str = None):
+        self.logger = get_logger(__name__)
+        self.scenario = scenario
+        self.primary_agent = agent
+        self.agents = agent + get_opponents(opponents)
+        self.n_rounds = n_rounds
+        self.runner_id = runner_id if runner_id else unique_id()
+        self.logger.info(f"Starting runner {self.runner_id} for {self.primary_agent}")
 
-        first_agent = agents.split(" ")[0]
-        # shutil.copy2(f'dump/models/{env.model_name}', f'agent_code/{first_agent}/models/{env.model_name}')
+    def start(self, env: EnvVariables, all_rewards: Union[List[List[Tuple[str, int]]], None]):
+        all_matches = {}
+
+        for idx, rewards in enumerate(all_rewards):
+            env.match_id = f"{self.runner_id}-{self.primary_agent}-{unique_id()}"
+            env.model_name = f"{env.match_id}.pt"
+            env.n_rounds = self.n_rounds
+            self._run(idx, env, rewards)
+
+            all_matches[env.match_id] = dict(rewards)
+
+        if all_rewards:
+            with open(f"results/runner-{self.runner_id}_rounds-{env.n_rounds}_rewards-{len(all_rewards)}.json", "w") as file:
+                json.dump(all_matches, file)
+
+    def start_simple(self, env: EnvVariables):
+        env.match_id = "task1-eps"
+        env.model_name = f"{env.match_id}.pt"
+        env.n_rounds = self.n_rounds
+        self._run(0, env, None)
+
+    def _run(self, idx: int, env: EnvVariables, rewards: Union[List[Tuple[str, int]], None]):
+        self.logger.info(f"Executing iteration {idx}", extra={"match_name": env.match_id, "agents": self.agents,
+                                                              "n_rounds": env.n_rounds, "scenario": self.scenario,
+                                                              "alpha": env.alpha, "gamma": env.gamma, "eps": env.eps,
+                                                              "policy": env.policy})
+        stats_file = f"results/{env.match_id}.json"
+
+        env.set(rewards)
+        play_iteration(agents=self.agents, scenario=self.scenario, n_rounds=self.n_rounds, match_name=env.match_id, stats_file=stats_file)
+
+        with open(stats_file, "rb") as f:
+            stats = json.load(f)
+        self.logger.info(f"Statistics for iteration {idx} ({env.match_id})", extra=stats["by_agent"]["task1"])
+
+        if not rewards:
+            shutil.copy2(f'dump/models/{env.model_name}', f'agent_code/{self.primary_agent}/models/{env.model_name}')
 
 
 #
@@ -144,18 +168,26 @@ def play_game(scenario: str, agents: str,rounds,  all_rewards: List[List[Tuple[s
 #
 def main(argv=None):
     parser = ArgumentParser()
-    parser.add_argument("--rounds", type=int, default=500)
+    parser.add_argument("--rounds", type=int, default=100)
     parser.add_argument("--agent", type=str, default="task1")
-    parser.add_argument("--o", type=str, default="")
+    parser.add_argument("--o", type=str, default="rule")
     parser.add_argument("--s", type=str, default="classic")
+    parser.add_argument("--simple", type=bool, default=False)
+    parser.add_argument("--samples", type=int, default=10)
 
     args = parser.parse_args(argv)
 
-    agents = args.agent + get_opponents(args.o)
+    all_rewards = None
+    if not args.simple:
+        all_rewards = get_rewards(args.samples)
 
-    all_rewards = get_rewards(150)
+    env = EnvVariables(policy="epsilon_greedy", gamma=0.8, eps=0.12, alpha=0.05)
+    sr = Runner(scenario=args.s, n_rounds=args.rounds, agent=args.agent, opponents=args.o)
 
-    play_game(agents=agents, scenario=args.s, rounds=args.rounds, all_rewards=all_rewards)
+    if args.simple:
+        sr.start_simple(env)
+    else:
+        sr.start(env, all_rewards)
 
 
 if __name__ == "__main__":
