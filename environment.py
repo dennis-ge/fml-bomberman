@@ -45,6 +45,7 @@ class GenericWorld:
     round_id: str
 
     def __init__(self, args: WorldArgs):
+        self.relevant_agent_died = False
         self.args = args
         self.setup_logging()
 
@@ -172,6 +173,7 @@ class GenericWorld:
         self.update_bombs()
         self.evaluate_explosions()
         self.send_game_events()
+        self.logger.info(f'FINISHING STEP {self.step}')
 
         if self.time_to_stop():
             self.end_round()
@@ -258,7 +260,7 @@ class GenericWorld:
                             explosion.owner.trophies.append(pygame.transform.smoothscale(a.avatar, (15, 15)))
 
                         if a.name == "task1" and not a.train and len(self.active_agents) > 0:
-                            self.running = False
+                            self.relevant_agent_died = True
 
         # Remove hit agents
         for a in agents_hit:
@@ -306,6 +308,9 @@ class GenericWorld:
             self.logger.info('Maximum number of steps reached, wrap up round')
             return True
 
+        if self.relevant_agent_died:
+            self.logger.info('Relevant agent died, wrap up round')
+            return True
         return False
 
     def end(self):

@@ -23,6 +23,7 @@ def setup_training(self):
 
 def get_custom_events(self, old_game_state: dict, self_action: str, new_game_state: dict or None) -> List[str]:
     custom_events = []
+
     bomb_fields = get_bomb_fields(old_game_state["field"], old_game_state["bombs"], old_game_state["explosion_map"])
     enemies_pos = [enemy[3] for enemy in old_game_state["others"]]
     crates = [(x, y) for x, y in np.ndindex(old_game_state["field"].shape) if (old_game_state["field"][x, y] == 1) or (x, y)]
@@ -35,21 +36,21 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
 
     # Feature 1
     if len(old_game_state["coins"]) > 0:
-        if moved_towards_coin(old_game_state, new_game_state):
-            custom_events.append(MOVED_TOWARDS_COIN)
+        if moved_towards_coin(old_game_state, self_action):
+            custom_events.append(MOVED_TOWARDS_COIN_1)
         else:
-            custom_events.append(MOVED_AWAY_FROM_COIN)
+            custom_events.append(MOVED_AWAY_FROM_COIN_1)
 
     # Feature 2
     if len(old_game_state["coins"]) > 0 and 1 in feat_2(old_game_state["coins"], old_game_state["self"][3]):
-        if old_game_state["self"][1] == new_game_state["self"][1]:
-            custom_events.append(DID_NOT_COLLECT_COIN)
+        if old_game_state["self"][1] == new_game_state["self"][1]:  # score stayed the same
+            custom_events.append(DID_NOT_COLLECT_COIN_2)
 
     # Feature 3
-    # if valid_action(old_game_state, self_action, bomb_fields, enemies_pos):
-    #    custom_events.append(VALID_ACTION)
-    # else:
-    #    custom_events.append(INVALID_ACTION)
+    if performed_valid_action(old_game_state, self_action, bomb_fields, enemies_pos):
+        custom_events.append(VALID_ACTION_3)
+    else:
+        custom_events.append(INVALID_ACTION_3)
 
     # Feature 3
     # if self_action == "WAIT":
@@ -58,18 +59,18 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
 
     # Feature 4
     if old_game_state["self"][3] in get_blast_radius(old_game_state["field"], old_game_state["bombs"]):
-        if moved_out_of_blast_radius(old_game_state, new_game_state, bomb_fields, enemies_pos):
-            custom_events.append(MOVED_OUT_OF_BLAST_RADIUS)
+        if moved_out_of_blast_radius(old_game_state, bomb_fields, enemies_pos, self_action):
+            custom_events.append(MOVED_OUT_OF_BLAST_RADIUS_4)
         else:
-            custom_events.append(STAYED_IN_BLAST_RADIUS)
+            custom_events.append(STAYED_IN_BLAST_RADIUS_4)
 
     # Feature 5
     if len(old_game_state["bombs"]) > 0:
         if stayed_out_of_bomb_fields(old_game_state, new_game_state, bomb_fields):
-            custom_events.append(MOVED_AWAY_FROM_BOMB_FIELDS)
+            custom_events.append(MOVED_AWAY_FROM_BOMB_FIELDS_5)
         else:
             if self_action != "BOMB":
-                custom_events.append(MOVED_TOWARDS_BOMB_FIELDS)
+                custom_events.append(MOVED_TOWARDS_BOMB_FIELDS_5)
 
     # # Feature 6
     # if len(old_game_state["bombs"]) > 0:
@@ -81,43 +82,43 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
     # Feature 7
     if 1 in feat_7(old_game_state["field"], bomb_fields, old_game_state["self"][2], old_game_state["self"][3], enemies_pos):
         if self_action == "BOMB":
-            custom_events.append(PLACED_BOMB_NEXT_TO_CRATE)
+            custom_events.append(PLACED_BOMB_NEXT_TO_CRATE_7)
 
     # Feature 8
-    if 1 in old_game_state["field"]:
-        if moved_towards_crate(old_game_state, new_game_state):
-            custom_events.append(MOVED_TOWARDS_CRATE)
+    # if 1 in old_game_state["field"]:
+    #     if moved_towards_crate(old_game_state, new_game_state):
+    #         custom_events.append(MOVED_TOWARDS_CRATE_8)
 
     # Feature 9
     if 1 in feat_9(old_game_state["field"], bomb_fields, old_game_state["self"][2], old_game_state["self"][3], enemies_pos):
         if self_action == "BOMB":
-            custom_events.append(PLACED_BOMB_NEXT_TO_OPPONENT)
+            custom_events.append(PLACED_BOMB_NEXT_TO_OPPONENT_9)
 
     if placed_useless_bomb(old_game_state, self_action, bomb_fields, enemies_pos):
-        custom_events.append(PLACED_USELESS_BOMB)
+        custom_events.append(PLACED_USELESS_BOMB_7_9)
 
     # Feature 10
     enemies_nearby = get_nearby_enemies(old_game_state["self"][3], old_game_state["others"])
     if len(enemies_nearby) > 0:
         if moved_away_from_dangerous_enemies(old_game_state, new_game_state, enemies_pos):
-            custom_events.append(MOVED_AWAY_FROM_DANGEROUS_ENEMY)
+            custom_events.append(MOVED_AWAY_FROM_DANGEROUS_ENEMY_10)
         else:
-            custom_events.append(MOVED_AWAY_FROM_DANGEROUS_ENEMY)
+            custom_events.append(MOVED_AWAY_FROM_DANGEROUS_ENEMY_10)
 
     # Feature 11
     if len(crates) <= 5 and len(old_game_state["coins"]) <= 2 and len(enemies_pos) > 0:
         if moved_towards_enemy(old_game_state, new_game_state, enemies_pos, crates):
-            custom_events.append(MOVED_TOWARDS_ENEMY)
+            custom_events.append(MOVED_TOWARDS_ENEMY_11)
         else:
-            custom_events.append(MOVED_AWAY_FROM_ENEMY)
+            custom_events.append(MOVED_AWAY_FROM_ENEMY_11)
 
     # Feature 12
-    dead_end_exits = get_safe_dead_for_enemies(old_game_state["field"], enemies_pos)
-    if safe_dead_exits_reachable(dead_end_exits, old_game_state["self"][3]):
-        if self_action == "BOMB":
-            custom_events.append(KILLED_ENEMY_IN_SAFE_DEAD)
-        else:
-            custom_events.append(DID_NOT_KILL_ENEMY_IN_SAFE_DEAD)
+    # dead_end_exits = get_safe_dead_for_enemies(old_game_state["field"], enemies_pos)
+    # if safe_dead_exits_reachable(dead_end_exits, old_game_state["self"][3]):
+    #     if self_action == "BOMB":
+    #         custom_events.append(KILLED_ENEMY_IN_SAFE_DEAD_12)
+    #     else:
+    #         custom_events.append(DID_NOT_KILL_ENEMY_IN_SAFE_DEAD_12)
 
     return custom_events
 
@@ -223,21 +224,18 @@ def reward_from_events(self, events: List[str]) -> int:
     return reward_sum
 
 
-def moved_towards_coin(old_state, new_state) -> bool:
+def moved_towards_coin(old_state, self_action: str) -> bool:
     """
     Feature 1: Checks whether the agent moved towards a coin.
     """
     feature_old = feat_1(old_state["field"], old_state["coins"], old_state["self"][3])
 
     idx = np.where(feature_old == 1)[0][0]
-    expected_new_x, expected_new_y = get_new_position(ACTIONS[idx], old_state["self"][3])
 
-    actual_new_x, actual_new_y = new_state["self"][3]
-
-    return (expected_new_x, expected_new_y) == (actual_new_x, actual_new_y)
+    return ACTIONS[idx] == self_action
 
 
-def valid_action(old_state, self_action, bomb_fields, enemies_pos) -> bool:
+def performed_valid_action(old_state, self_action, bomb_fields, enemies_pos) -> bool:
     """
     Feature 3: Checks wheter the agent chose of the valid/intelligent actions
     """
@@ -252,20 +250,19 @@ def valid_action(old_state, self_action, bomb_fields, enemies_pos) -> bool:
     return False
 
 
-def moved_out_of_blast_radius(old_state, new_state, bomb_fields, enemies_pos) -> bool:
+def moved_out_of_blast_radius(old_state, bomb_fields, enemies_pos, self_action: str,) -> bool:
     """
     Feature 4: Checks whether the agent moved out of the blast radius
     Note: The agent is in the blast radius in the old state.
     """
     feature_old = feat_4(old_state["field"], bomb_fields, old_state["self"][3], enemies_pos)
 
-    idx = np.where(feature_old == 1)[0][0]
-    expected_new_x, expected_new_y = get_new_position(ACTIONS[idx], old_state["self"][3])
+    idxs = np.where(feature_old == 1)[0]
+    for idx in idxs:
+        if ACTIONS[idx] == self_action:
+            return True
 
-    actual_new_x, actual_new_y = new_state["self"][3]
-
-    return (expected_new_x, expected_new_y) == (actual_new_x, actual_new_y)
-
+    return False
 
 def stayed_out_of_bomb_fields(old_state, new_state, bomb_fields) -> bool:
     """

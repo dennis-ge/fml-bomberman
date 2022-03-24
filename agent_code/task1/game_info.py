@@ -11,7 +11,7 @@ def beautify_output(field: np.array, features: np.array, model: np.array, q_valu
     out = ""
     if env.PRINT_FIELD:
         out += f"Field {field}\n"
-    out += f"Model {[round(weight, 4) for weight in model]}\n"
+    out += f"Model {[round(weight, 2) for weight in model]}\n"
     out += "Feature   " + "\t ".join([f'{i}' for i in range(len(features[0]))]) + "\n"
     for i in range(len(features)):
         out += f"{ACTIONS[i]:6}: {features[i]} : {q_values[i]}\n"

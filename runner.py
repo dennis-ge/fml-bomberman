@@ -43,14 +43,14 @@ def append_list_to_list(first: list, second: list) -> list:
 
 
 def get_rewards(n_samples: int) -> List[List[Tuple[str, int]]]:
-    from agent_code.task1.rewards import REWARDS_LIST
+    from agent_code.task1.rewards import REWARDS
 
     all_rewards = []
     for i in range(n_samples):
         rewards = []
-        for reward in REWARDS_LIST:
-            choice = np.random.choice(reward[2])
-            rewards.append((reward[0], int(choice)))
+        for name, item in REWARDS.items():
+            choice = np.random.choice(item[1])
+            rewards.append((name, int(choice)))
         all_rewards.append(rewards)
 
     return all_rewards
@@ -101,14 +101,15 @@ class EnvVariables:
                 os.environ[item[0]] = f"{item[1]}"
 
 
-def play_iteration(agents: str, n_rounds: int, scenario: str, match_name: str, stats_file: str):
+def play_iteration(agents: str, n_rounds: int, scenario: str, match_name: str, stats_file: str, train: bool = True):
     game_args = ["play", "--no-gui"]
     game_args.extend(["--agents", *agents.split(" ")])
     game_args.extend(["--n-rounds", str(n_rounds)])
     game_args.extend(["--scenario", scenario])
-    game_args.extend(["--match-name", match_name])
     game_args.extend(["--save-stats", stats_file])
-    game_args.extend(["--train", str(1)])
+    if train:
+        game_args.extend(["--match-name", match_name])
+        game_args.extend(["--train", str(1)])
 
     play(game_args)
 
@@ -125,7 +126,13 @@ class Runner:
         self.logger.info(f"Starting runner {self.runner_id} for {self.primary_agent}")
 
     def start(self, env: EnvVariables, all_rewards: Union[List[List[Tuple[str, int]]], None]):
-        all_matches = {}
+        all_matches = {
+            "general": {
+                "eps": env.eps,
+                "gamma": env.gamma,
+                "alpha": env.alpha,
+            }
+        }
 
         for idx, rewards in enumerate(all_rewards):
             env.match_id = f"{self.runner_id}-{self.primary_agent}-{unique_id()}"
@@ -146,18 +153,29 @@ class Runner:
         self._run(0, env, None)
 
     def _run(self, idx: int, env: EnvVariables, rewards: Union[List[Tuple[str, int]], None]):
-        self.logger.info(f"Executing iteration {idx}", extra={"match_name": env.match_id, "agents": self.agents,
-                                                              "n_rounds": env.n_rounds, "scenario": self.scenario,
-                                                              "alpha": env.alpha, "gamma": env.gamma, "eps": env.eps,
-                                                              "policy": env.policy})
-        stats_file = f"results/{env.match_id}.json"
+        self.logger.info(f"Executing training iteration {idx}", extra={"match_name": env.match_id, "agents": self.agents,
+                                                                       "n_rounds": env.n_rounds, "scenario": self.scenario,
+                                                                       "alpha": env.alpha, "gamma": env.gamma, "eps": env.eps,
+                                                                       "policy": env.policy})
+        stats_file = f"results/{env.match_id}_train.json"
 
         env.set(rewards)
-        play_iteration(agents=self.agents, scenario=self.scenario, n_rounds=self.n_rounds, match_name=env.match_id, stats_file=stats_file)
+        play_iteration(agents=self.agents, scenario=self.scenario, n_rounds=env.n_rounds, match_name=env.match_id, stats_file=stats_file)
 
         with open(stats_file, "rb") as f:
             stats = json.load(f)
         self.logger.info(f"Statistics for iteration {idx} ({env.match_id})", extra=stats["by_agent"]["task1"])
+
+        if rewards:
+            stats_file = f"results/{env.match_id}.json"
+            env.policy = "greedy"
+            env.n_rounds = 50
+            env.set(rewards)
+            self.logger.info(f"Executing greedy iteration {idx}", extra={"match_name": env.match_id, "agents": self.agents,
+                                                                         "n_rounds": env.n_rounds, "scenario": self.scenario,
+                                                                         "alpha": env.alpha, "gamma": env.gamma, "eps": env.eps,
+                                                                         "policy": env.policy})
+            play_iteration(agents=self.agents, scenario=self.scenario, n_rounds=env.n_rounds, match_name=env.match_id, stats_file=stats_file, train=False)
 
         if not rewards:
             shutil.copy2(f'dump/models/{env.model_name}', f'agent_code/{self.primary_agent}/models/{env.model_name}')
@@ -181,7 +199,7 @@ def main(argv=None):
     if not args.simple:
         all_rewards = get_rewards(args.samples)
 
-    env = EnvVariables(policy="epsilon_greedy", gamma=0.8, eps=0.12, alpha=0.05)
+    env = EnvVariables(policy="epsilon_greedy", gamma=0.85, eps=0.12, alpha=0.05)
     sr = Runner(scenario=args.s, n_rounds=args.rounds, agent=args.agent, opponents=args.o)
 
     if args.simple:

@@ -38,7 +38,7 @@ def state_to_features(game_state: dict) -> Union[Tuple[None, None], Tuple[np.nda
         feat_9(field, bomb_fields, bomb_action_possible, agent_pos, enemies_pos),
         feat_10(field, agent_pos, bomb_action_possible, enemies_nearby),
         feat_11(field, agent_pos, bomb_action_possible, enemies_pos, crates, coins),
-        feat_12(field, agent_pos, bomb_action_possible, enemies_pos)
+        # feat_12(field, agent_pos, bomb_action_possible, enemies_pos)
     ))
 
     printable_field = ""
@@ -99,7 +99,7 @@ def feat_2(coins: List[Tuple[int, int]], agent_pos: Tuple[int, int]) -> np.ndarr
 
 def feat_3(field: np.ndarray, bomb_fields: List[Tuple[int, int]], bomb_action_possible: bool, agent_pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]]) -> np.ndarray:
     """
-     Agent performs intelligent action. An intelligent action is an action where the agent does
+     Agent performs valid action. A valid action is an action where the agent does
      not move out of the field, into walls, other enemies or crates
     """
     feature = np.zeros(len(ACTIONS))
@@ -150,7 +150,7 @@ def feat_4(field: np.ndarray, bomb_fields: List[Tuple[int, int]], agent_pos: Tup
                 continue
 
             new_pos = get_new_position(action, agent_pos)
-            if new_pos == best_direction:
+            if new_pos == best_direction or new_pos not in bomb_fields:
                 feature[idx] = 1
 
     return feature
@@ -284,8 +284,12 @@ def feat_10(field: np.ndarray, agent_pos: Tuple[int, int], bomb_action_possible:
         for idx, action in enumerate(ACTIONS):
             new_pos = get_new_position(action, agent_pos)
 
+            if action == "WAIT":
+                continue
+
             if new_pos != best_direction:
                 feature[idx] = 1
+
 
     return feature
 

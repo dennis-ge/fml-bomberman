@@ -56,7 +56,7 @@ def create_policy(name: str, logger: logging.Logger):
     raise ValueError(f'Unknown policy {name}')
 
 
-def max_q(features: np.array, model: np.array) -> Tuple[float, List[int], List[float]]:
+def max_q(features: np.array, model: np.array) -> Tuple[float, List[int], np.ndarray]:
     q_values = np.dot(features, model)
     q_max = np.max(q_values)
     a_max = np.where(q_values == q_max)[0]  # best actions

@@ -15,7 +15,7 @@ SET_REWARDS_OVER_ENV = True  # False for production
 #
 # ML/Hyperparameter
 #
-NUMBER_OF_FEATURES = 12
+NUMBER_OF_FEATURES = 11
 
 GREEDY_POLICY_NAME = 'greedy'
 EPSILON_GREEDY_POLICY_NAME = 'epsilon_greedy'
@@ -67,11 +67,11 @@ class EnvSettings:
 
         self.REWARDS = {}
         if SET_REWARDS_OVER_ENV:
-            for reward in REWARDS_LIST:
-                self.REWARDS[reward[0]] = int(os.environ.get(reward[0], reward[1]))
+            for name, item in REWARDS.items():
+                self.REWARDS[name] = int(os.environ.get(name, item[0]))
         else:
-            for reward in REWARDS_LIST:
-                self.REWARDS[reward[0]] = reward[1]
+            for name, item in REWARDS.items():
+                self.REWARDS[name] = item[1]
 
 
 env = EnvSettings()
