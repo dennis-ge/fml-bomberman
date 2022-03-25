@@ -28,13 +28,13 @@ def setup(self):
     env.reload()
 
     self.policy = create_policy(env.POLICY_NAME, self.logger)
-    if self.train or not os.path.isfile(PROD_MODEL_NAME):
+    if self.train or not os.path.isfile(env.MODEL_NAME):
         self.logger.info("Setting up model from scratch.")
         weights = np.random.rand(NUMBER_OF_FEATURES)
         self.model = weights / weights.sum()
     else:
-        self.logger.info("Loading model from saved state.")
-        with open(PROD_MODEL_NAME, "rb") as file:
+        self.logger.info(f"Loading model from saved state: {env.MODEL_NAME}" )
+        with open(env.MODEL_NAME, "rb") as file:
             self.model = pickle.load(file)
 
 
