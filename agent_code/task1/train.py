@@ -98,11 +98,11 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
     # Feature 10
     enemies_nearby = get_nearby_enemies(old_game_state["field"], old_game_state["self"][3], old_game_state["others"])
     if len(enemies_nearby) > 0:
-        if moved_away_from_dangerous_enemies(old_game_state, new_game_state, enemies_pos):
+        if moved_away_from_dangerous_enemies(old_game_state, new_game_state, enemies_pos, bomb_fields):
             custom_events.append(MOVED_AWAY_FROM_DANGEROUS_ENEMY_10)
         else:
             custom_events.append(MOVED_AWAY_FROM_DANGEROUS_ENEMY_10)
-    #
+    
     # # Feature 11
     feat_11_old = feat_11(old_game_state["field"], old_game_state["self"][3], old_game_state["self"][2], enemies_pos)
     if 1 in feat_11_old:
@@ -355,11 +355,11 @@ def placed_useless_bomb(old_state, last_action, bomb_fields, enemies_pos):
     return True
 
 
-def moved_away_from_dangerous_enemies(old_state, new_state, enemies_nearby) -> bool:
+def moved_away_from_dangerous_enemies(old_state, new_state, enemies_nearby, bomb_fields) -> bool:
     """
     Feature 10:
     """
-    feature_old = feat_10(old_state["field"], old_state["self"][3], old_state["self"][2], enemies_nearby)
+    feature_old = feat_10(old_state["field"], old_state["self"][3], old_state["self"][2], enemies_nearby, bomb_fields)
 
     actual_new_x, actual_new_y = new_state["self"][3]
 
@@ -391,4 +391,3 @@ def moved_into_dead_end(feature_old, self_action) -> bool:
             return True
 
     return False
-
