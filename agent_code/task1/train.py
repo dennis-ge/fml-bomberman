@@ -25,8 +25,11 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
     custom_events = []
 
     bomb_fields = get_bomb_fields(old_game_state["field"], old_game_state["bombs"], old_game_state["explosion_map"])
+    explosions = [(x, y) for x, y in np.ndindex(old_game_state["explosion_map"].shape) if (old_game_state["explosion_map"][x, y] != 0)]
+    blast_radius = get_blast_radius(old_game_state["field"], old_game_state["bombs"])
     enemies_pos = [enemy[3] for enemy in old_game_state["others"]]
-    crates = [(x, y) for x, y in np.ndindex(old_game_state["field"].shape) if (old_game_state["field"][x, y] == 1) or (x, y)]
+    enemies_nearby = get_nearby_enemies(old_game_state["field"], old_game_state["self"][3], old_game_state["others"])
+    crates = [(x, y) for x, y in np.ndindex(old_game_state["field"].shape) if (old_game_state["field"][x, y] == 1)]
 
     for other_agent in old_game_state["others"]:
         if old_game_state["step"] == 1 and self.episode == 0:
@@ -35,14 +38,14 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
         self.enemy_transitions[other_agent[0]].append(EnemyTransition(other_agent[2], *other_agent[3]))
 
     # Feature 1
-    if len(old_game_state["coins"]) > 0:
+    if 1 in feat_1(old_game_state["field"], old_game_state["coins"], old_game_state["self"][3]):  # when it is possible to move towards a coin
         if moved_towards_coin(old_game_state, self_action):
             custom_events.append(MOVED_TOWARDS_COIN_1)
         else:
             custom_events.append(MOVED_AWAY_FROM_COIN_1)
 
     # Feature 2
-    if len(old_game_state["coins"]) > 0 and 1 in feat_2(old_game_state["coins"], old_game_state["self"][3]):
+    if 1 in feat_2(old_game_state["coins"], old_game_state["self"][3]):
         if old_game_state["self"][1] == new_game_state["self"][1]:  # score stayed the same
             custom_events.append(DID_NOT_COLLECT_COIN_2)
 
@@ -51,11 +54,6 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
         custom_events.append(VALID_ACTION_3)
     else:
         custom_events.append(INVALID_ACTION_3)
-
-    # Feature 3
-    # if self_action == "WAIT":
-    #     if wait_is_intelligent(old_game_state["field"], bomb_fields, old_game_state["self"][3]):
-    #         custom_events.append(WAIT_ACTION_IS_INTELLIGENT)
 
     # Feature 4
     if old_game_state["self"][3] in get_blast_radius(old_game_state["field"], old_game_state["bombs"]):
@@ -72,12 +70,12 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
             if self_action != "BOMB":
                 custom_events.append(MOVED_TOWARDS_BOMB_FIELDS_5)
 
-    # # Feature 6
-    # if len(old_game_state["bombs"]) > 0:
-    #     if did_not_move_into_bomb_fields(old_game_state, new_game_state, bomb_fields):
-    #         custom_events.append(STAYED_OUT_OF_BOMB_RADIUS)
-    #     else:
-    #         custom_events.append(MOVED_INTO_BOMB_RADIUS)
+    # Feature 6
+    if len(old_game_state["bombs"]) > 0 and old_game_state["self"][3] not in get_blast_radius(old_game_state["field"], old_game_state["bombs"]):
+        if did_not_move_into_bomb_fields(old_game_state, new_game_state, bomb_fields):
+            custom_events.append(STAYED_OUT_OF_BOMB_RADIUS_6)
+        else:
+            custom_events.append(MOVED_INTO_BOMB_RADIUS_6)
 
     # Feature 7
     if 1 in feat_7(old_game_state["field"], bomb_fields, old_game_state["self"][2], old_game_state["self"][3], enemies_pos):
@@ -85,9 +83,9 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
             custom_events.append(PLACED_BOMB_NEXT_TO_CRATE_7)
 
     # Feature 8
-    # if 1 in old_game_state["field"]:
-    #     if moved_towards_crate(old_game_state, new_game_state):
-    #         custom_events.append(MOVED_TOWARDS_CRATE_8)
+    if 1 in old_game_state["field"]:
+        if moved_towards_crate(old_game_state, new_game_state, crates):
+            custom_events.append(MOVED_TOWARDS_CRATE_8)
 
     # Feature 9
     if 1 in feat_9(old_game_state["field"], bomb_fields, old_game_state["self"][2], old_game_state["self"][3], enemies_pos):
@@ -98,27 +96,35 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
         custom_events.append(PLACED_USELESS_BOMB_7_9)
 
     # Feature 10
-    enemies_nearby = get_nearby_enemies(old_game_state["self"][3], old_game_state["others"])
+    enemies_nearby = get_nearby_enemies(old_game_state["field"], old_game_state["self"][3], old_game_state["others"])
     if len(enemies_nearby) > 0:
         if moved_away_from_dangerous_enemies(old_game_state, new_game_state, enemies_pos):
             custom_events.append(MOVED_AWAY_FROM_DANGEROUS_ENEMY_10)
         else:
             custom_events.append(MOVED_AWAY_FROM_DANGEROUS_ENEMY_10)
-
-    # Feature 11
-    if len(crates) <= 5 and len(old_game_state["coins"]) <= 2 and len(enemies_pos) > 0:
-        if moved_towards_enemy(old_game_state, new_game_state, enemies_pos, crates):
+    #
+    # # Feature 11
+    feat_11_old = feat_11(old_game_state["field"], old_game_state["self"][3], old_game_state["self"][2], enemies_pos)
+    if 1 in feat_11_old:
+        if moved_towards_enemy(feat_11_old, self_action):
             custom_events.append(MOVED_TOWARDS_ENEMY_11)
         else:
             custom_events.append(MOVED_AWAY_FROM_ENEMY_11)
 
     # Feature 12
-    # dead_end_exits = get_safe_dead_for_enemies(old_game_state["field"], enemies_pos)
-    # if safe_dead_exits_reachable(dead_end_exits, old_game_state["self"][3]):
-    #     if self_action == "BOMB":
-    #         custom_events.append(KILLED_ENEMY_IN_SAFE_DEAD_12)
-    #     else:
-    #         custom_events.append(DID_NOT_KILL_ENEMY_IN_SAFE_DEAD_12)
+    trapped_tiles, possible_trapped_tiles = get_trapped_tiles(old_game_state["field"], enemies_pos, explosions, blast_radius)
+    if trapped_tiles_pos_reachable(old_game_state["self"][3], trapped_tiles, possible_trapped_tiles):
+        if self_action == "BOMB":
+            custom_events.append(KILLED_ENEMY_IN_TRAP_12)
+        else:
+            custom_events.append(DID_NOT_KILL_ENEMY_IN_TRAP_12)
+
+    feat_13_old = feat_13(old_game_state["field"], old_game_state["self"][3], explosions, blast_radius, enemies_nearby)
+    if 1 in feat_13_old:
+        if moved_into_dead_end(feat_13_old, self_action):
+            custom_events.append(MOVED_INTO_DANGEROUS_POSITION_13)
+        else:
+            custom_events.append(DID_NOT_MOVE_INTO_DANGEROUS_POSITION_13)
 
     return custom_events
 
@@ -164,7 +170,7 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     else:
         self.model = q.td_update(self.model, transition)
 
-    self.logger.debug(f'Encountered game event(s) {", ".join(map(repr, events))} in step {new_game_state["step"]}')
+    # self.logger.debug(f'Encountered game event(s) {", ".join(map(repr, events))} in step {new_game_state["step"]}')
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
@@ -237,7 +243,7 @@ def moved_towards_coin(old_state, self_action: str) -> bool:
 
 def performed_valid_action(old_state, self_action, bomb_fields, enemies_pos) -> bool:
     """
-    Feature 3: Checks wheter the agent chose of the valid/intelligent actions
+    Feature 3: Checks whether the agent chose one of the valid/intelligent actions
     """
     feature_old = feat_3(old_state["field"], bomb_fields, old_state["self"][2], old_state["self"][3], enemies_pos)
 
@@ -250,7 +256,7 @@ def performed_valid_action(old_state, self_action, bomb_fields, enemies_pos) -> 
     return False
 
 
-def moved_out_of_blast_radius(old_state, bomb_fields, enemies_pos, self_action: str,) -> bool:
+def moved_out_of_blast_radius(old_state, bomb_fields, enemies_pos, self_action: str, ) -> bool:
     """
     Feature 4: Checks whether the agent moved out of the blast radius
     Note: The agent is in the blast radius in the old state.
@@ -263,6 +269,7 @@ def moved_out_of_blast_radius(old_state, bomb_fields, enemies_pos, self_action: 
             return True
 
     return False
+
 
 def stayed_out_of_bomb_fields(old_state, new_state, bomb_fields) -> bool:
     """
@@ -299,22 +306,19 @@ def did_not_move_into_bomb_fields(old_state, new_state, bomb_fields) -> bool:
     return False
 
 
-def moved_towards_crate(old_state, new_state) -> bool:
+def moved_towards_crate(old_state, self_action: str, crates: List[Tuple[int, int]]) -> bool:
     """
     Feature 8: Checks whether the agent moved towards a crate.
     """
-    feature_old = feat_8(old_state["field"], old_state["self"][2], old_state["self"][3])
+    feature_old = feat_8(old_state["field"], old_state["self"][2], old_state["self"][3], crates)
 
     # check if move to crate is possible
     if feature_old.max() == 0:
         return False
 
     idx = np.where(feature_old == 1)[0][0]
-    expected_new_x, expected_new_y = get_new_position(ACTIONS[idx], old_state["self"][3])
 
-    actual_new_x, actual_new_y = new_state["self"][3]
-
-    return (expected_new_x, expected_new_y) == (actual_new_x, actual_new_y)
+    return ACTIONS[idx] == self_action
 
 
 def placed_useless_bomb(old_state, last_action, bomb_fields, enemies_pos):
@@ -368,15 +372,23 @@ def moved_away_from_dangerous_enemies(old_state, new_state, enemies_nearby) -> b
     return False
 
 
-def moved_towards_enemy(old_state, new_state, enemies, crates) -> bool:
+def moved_towards_enemy(feature_old, self_action) -> bool:
     """
     Feature 11:
     """
-    feature_old = feat_11(old_state["field"], old_state["self"][3], old_state["self"][2], enemies, crates, old_state["coins"])
-
     idx = np.where(feature_old == 1)[0][0]
-    expected_new_x, expected_new_y = get_new_position(ACTIONS[idx], old_state["self"][3])
 
-    actual_new_x, actual_new_y = new_state["self"][3]
+    return ACTIONS[idx] == self_action
 
-    return (expected_new_x, expected_new_y) == (actual_new_x, actual_new_y)
+
+def moved_into_dead_end(feature_old, self_action) -> bool:
+    """
+    Feature 13:
+    """
+    idxs = np.where(feature_old == 1)[0]
+    for idx in idxs:
+        if ACTIONS[idx] == self_action:
+            return True
+
+    return False
+

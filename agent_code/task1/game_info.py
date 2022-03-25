@@ -1,7 +1,6 @@
 from typing import *
 
 import numpy as np
-from scipy.spatial.distance import cityblock
 
 from agent_code.task1.agent_settings import *
 from settings import *
@@ -11,11 +10,11 @@ def beautify_output(field: np.array, features: np.array, model: np.array, q_valu
     out = ""
     if env.PRINT_FIELD:
         out += f"Field {field}\n"
-    out += f"Model {[round(weight, 2) for weight in model]}\n"
+    out += f"Model {[f'{round(weight, 2)} ({idx})' for idx, weight in enumerate(model)]}\n"
     out += "Feature   " + "\t ".join([f'{i}' for i in range(len(features[0]))]) + "\n"
     for i in range(len(features)):
-        out += f"{ACTIONS[i]:6}: {features[i]} : {q_values[i]}\n"
-    return out[:-1].replace("0.", " .")
+        out += f"{ACTIONS[i]:6}: {features[i]}".replace("0.", " .") + f": {round(q_values[i], 3)}\n"
+    return out[:-1]
 
 
 def get_new_position(action: str, pos: Tuple[int, int]) -> Tuple[int, int]:
@@ -42,35 +41,56 @@ def get_neighbor_positions(pos: Tuple[int, int]) -> List[Tuple[int, int]]:
     ]
 
 
-def get_safe_dead_exit(field: np.array, pos: Tuple[int, int]) -> Tuple[int, int]:
+def get_neighbor_tiles_info(pos, field: np.array, explosions: List[Tuple[int, int]], blast_radius: List[Tuple[int, int]]):
     neighbors = get_neighbor_positions(pos)
+    free = []
+    endangered = []
+    for x, y in neighbors:
+        if x == 15 or y == 15:
+            pass
+        if field[x, y] == 0 and (x, y) not in explosions:
+            free.append((x, y))
+            continue
 
-    for (x, y) in neighbors:
-        if field[x, y] == 0:
-            return x, y
+        if field[x, y] == 0 and (x, y) in blast_radius:
+            endangered.append((x, y))
 
-
-def get_safe_dead_for_enemies(field: np.array, enemies_pos: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
-    safe_deads: List[Tuple[Tuple[int, int], Tuple[int, int]]] = []
-    for x, y in np.ndindex(field.shape):
-        if field[x, y] == 0 and ([field[x + 1, y], field[x - 1, y], field[x, y + 1], field[x, y - 1]].count(0) == 1):
-            safe_deads.append((x, y))
-
-    safe_deads_exits = []
-    for enemy in enemies_pos:
-        if enemy in safe_deads:
-            safe_dead_exit = get_safe_dead_exit(field, enemy)
-            safe_deads_exits.append(safe_dead_exit)
-    return safe_deads_exits
+    return free, endangered
 
 
-def safe_dead_exits_reachable(safe_dead_exits: List[Tuple[int, int]], agent_pos: Tuple[int, int]):
-    if len(safe_dead_exits) > 0:
-        neighbor_fields = get_neighbor_positions(agent_pos)
-        if neighbor_fields in safe_dead_exits:
-            return True
-    else:
-        return False
+def get_trapped_tiles(field: np.array, positions: List[Tuple[int, int]], explosions: List[Tuple[int, int]], blast_radius: List[Tuple[int, int]]) -> Tuple[
+    List[Tuple[int, int]], List[Tuple[int, int]]]:
+    trapped_tiles = []
+    possible_trapped_tiles = []
+
+    for pos in positions:
+        free, endangered = get_neighbor_tiles_info(pos, field, explosions, blast_radius)
+
+        if len(free) == 1:  # only when there is one free tile left, the position is trapped
+            trapped_tiles.append(free[0])
+        elif len(free) == 0:
+            trapped_tiles.append(pos)  # pos has no free tile left. only right action would be wait
+        if len(endangered) == 1:
+            possible_trapped_tiles.append(endangered[0])
+    return trapped_tiles, possible_trapped_tiles
+
+
+def trapped_tiles_pos_reachable(pos: Tuple[int, int], trapped_tiles: List[Tuple[int, int]], possible_trapped_tiles: List[Tuple[int, int]]) -> bool:
+    """
+    Checks whether the given trapped positions are reachable
+    """
+    neighbor_fields = get_neighbor_positions(pos)
+    if len(trapped_tiles) > 0:
+        for neighbor_field in neighbor_fields:
+            if neighbor_field in trapped_tiles:
+                return True
+
+    if len(possible_trapped_tiles) > 0:
+        for neighbor_field in neighbor_fields:
+            if neighbor_field in possible_trapped_tiles:
+                return True
+
+    return False
 
 
 def get_extended_neighbor_positions(pos: Tuple[int, int]) -> List[Tuple[int, int]]:
@@ -87,8 +107,7 @@ def get_extended_neighbor_positions(pos: Tuple[int, int]) -> List[Tuple[int, int
     ]
 
 
-def get_safe_fields(field: np.array, bomb_fields: List[Tuple[int, int]], enemies_pos: List[Tuple[int, int]]) -> List[
-    Tuple[int, int]]:
+def get_safe_fields(field: np.array, bomb_fields: List[Tuple[int, int]], enemies_pos: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
     safe_fields = []
     for x, y in np.ndindex(field.shape):
         if (field[x, y] == 0) and (x, y) not in bomb_fields and (x, y) not in enemies_pos:
@@ -120,6 +139,7 @@ def look_for_targets(free_space, start, targets, logger=None) -> Tuple[Tuple[int
     dist_so_far = {start: 0}
     best = start
     best_dist = np.sum(np.abs(np.subtract(targets, start)), axis=1).min()
+    reachable = False
     # construct tree
     while len(frontier) > 0:
         current = frontier.pop(0)
@@ -131,6 +151,7 @@ def look_for_targets(free_space, start, targets, logger=None) -> Tuple[Tuple[int
         if d == 0:
             # Found path to a target's exact position, mission accomplished!
             best = current
+            reachable = True
             break
         # Add unexplored free neighboring tiles to the queue in a random order
         x, y = current
@@ -141,10 +162,15 @@ def look_for_targets(free_space, start, targets, logger=None) -> Tuple[Tuple[int
                 frontier.append(neighbor)
                 parent_dict[neighbor] = current
                 dist_so_far[neighbor] = dist_so_far[current] + 1
+    # if we can't reach a target, return None
+    if not reachable:
+        return None, None
     if logger:
         logger.debug(f'Suitable target found at {best}')
+
     # Determine the first step towards the best found target tile
     current = best
+
     while True:
         if parent_dict[current] == start:  # next direction starting from start
             return current, best
@@ -195,7 +221,6 @@ def is_crate_nearby(field: np.array, pos: Tuple[int, int]) -> bool:
 
 def is_opponent_nearby(pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]]) -> bool:
     extended_neighbors = get_extended_neighbor_positions(pos)
-    # extended_neighbors = get_neighbor_positions(pos)
     for neighbor_pos in extended_neighbors:
         if neighbor_pos in enemies_pos:
             return True
@@ -203,15 +228,26 @@ def is_opponent_nearby(pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]])
     return False
 
 
-def get_dangerous_fields(field: np.ndarray) -> List[Tuple[int, int]]:
-    pass
+def get_nearby_field(field: np.ndarray, pos: Tuple[int, int]) -> List[Tuple[int, int]]:
+    minimized_field = []
+    x, y = pos
+    min_x = x - 5 if (x - 5) > 0 else 0
+    max_x = x + 5 if (x + 5) < field.shape[0] else field.shape[0]
+    min_y = y - 5 if (y - 5) > 0 else 0
+    max_y = y + 5 if (y + 5) < field.shape[1] else field.shape[1]
+
+    for curr_x in range(min_x, max_x):
+        for curr_y in range(min_y, max_y):
+            minimized_field.append((curr_x, curr_y))
+
+    return minimized_field
 
 
-def get_nearby_enemies(pos: Tuple[int, int], enemies: List[Tuple[str, int, bool, Tuple[int, int]]]):
+def get_nearby_enemies(field: np.ndarray, pos: Tuple[int, int], enemies: List[Tuple[str, int, bool, Tuple[int, int]]]):
     enemies_nearby = []
+    nearby_field = get_nearby_field(field, pos)
     for _, _, bomb_action_available, enemy_pos in enemies:
-        distance = cityblock([pos[0], pos[1]], [enemy_pos[0], enemy_pos[1]])
-        if distance < 6 and bomb_action_available:
+        if enemy_pos in nearby_field:
             enemies_nearby.append(enemy_pos)
     return enemies_nearby
 

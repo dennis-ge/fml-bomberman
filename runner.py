@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import pickle
 import random
 import shutil
 import string
@@ -11,6 +12,7 @@ from typing import List, Tuple, Union
 import numpy as np
 from pythonjsonlogger import jsonlogger
 
+from agent_code.task1.rewards import REWARDS
 from main import main as play
 
 SEED = 42
@@ -43,13 +45,24 @@ def append_list_to_list(first: list, second: list) -> list:
 
 
 def get_rewards(n_samples: int) -> List[List[Tuple[str, int]]]:
-    from agent_code.task1.rewards import REWARDS
-
     all_rewards = []
     for i in range(n_samples):
         rewards = []
         for name, item in REWARDS.items():
             choice = np.random.choice(item[1])
+            rewards.append((name, int(choice)))
+        all_rewards.append(rewards)
+
+    return all_rewards
+
+
+def get_biased_rewards(n_samples) -> List[List[Tuple[str, int]]]:
+    all_rewards = []
+    for i in range(n_samples):
+        rewards = []
+        for name, item in REWARDS.items():
+            deviation = [i for i in range(item[0] - 5, item[0] + 5)]
+            choice = np.random.choice(deviation)
             rewards.append((name, int(choice)))
         all_rewards.append(rewards)
 
@@ -70,6 +83,7 @@ def get_opponents(arg):
         "rule": " rule_based_agent rule_based_agent rule_based_agent",
         "random": " random_agent random_agent random_agent",
         "peaceful": " peaceful_agent peaceful_agent peaceful_agent",
+        "coin": " coin_collector_agent coin_collector_agent coin_collector_agent",
     }
     return switch.get(arg)
 
@@ -152,6 +166,10 @@ class Runner:
         env.n_rounds = self.n_rounds
         self._run(0, env, None)
 
+        with open(f"agent_code/task1/models/{env.model_name}", "rb") as file:
+            model = pickle.load(file)
+            self.logger.debug(f"Model {[f'{round(weight, 2)} ({idx})' for idx, weight in enumerate(model)]}")
+
     def _run(self, idx: int, env: EnvVariables, rewards: Union[List[Tuple[str, int]], None]):
         self.logger.info(f"Executing training iteration {idx}", extra={"match_name": env.match_id, "agents": self.agents,
                                                                        "n_rounds": env.n_rounds, "scenario": self.scenario,
@@ -197,9 +215,10 @@ def main(argv=None):
 
     all_rewards = None
     if not args.simple:
-        all_rewards = get_rewards(args.samples)
+        # all_rewards = get_rewards(args.samples)
+        all_rewards = get_biased_rewards(args.samples)
 
-    env = EnvVariables(policy="epsilon_greedy", gamma=0.85, eps=0.12, alpha=0.05)
+    env = EnvVariables(policy="epsilon_greedy", gamma=0.90, eps=0.15, alpha=0.05)
     sr = Runner(scenario=args.s, n_rounds=args.rounds, agent=args.agent, opponents=args.o)
 
     if args.simple:

@@ -7,7 +7,6 @@
       <env name="PYTHONUNBUFFERED" value="1" />
       <env name="POLICY" value="greedy" />
       <env name="PRINT_FIELD" value="True" />
-      <env name="MODEL_NAME" value="JKYG-task1-FFCW" />
     </envs>
     <option name="SDK_HOME" value="" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />

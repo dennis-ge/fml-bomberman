@@ -7,7 +7,7 @@ MOVED_AWAY_FROM_COIN_1 = "MOVED_AWAY_FROM_COIN"
 DID_NOT_COLLECT_COIN_2 = "DID_NOT_COLLECT_COIN"
 # Feature 3
 VALID_ACTION_3 = "VALID_ACTION"
-INVALID_ACTION_3 = "INVALID_ACTION"
+INVALID_ACTION_3 = "INVALID_ACTION_3"
 # Feature 4
 MOVED_OUT_OF_BLAST_RADIUS_4 = "MOVED_OUT_OF_BLAST_RADIUS"
 STAYED_IN_BLAST_RADIUS_4 = "STAYED_IN_BLAST_RADIUS"
@@ -34,8 +34,11 @@ MOVED_TOWARDS_DANGEROUS_ENEMY_10 = "MOVED_TOWARDS_DANGEROUS_ENEMY"
 MOVED_TOWARDS_ENEMY_11 = "MOVED_TOWARDS_ENEMY"
 MOVED_AWAY_FROM_ENEMY_11 = "MOVED_AWAY_FROM_ENEMY"
 # Feature 12
-KILLED_ENEMY_IN_SAFE_DEAD_12 = "KILLED_ENEMY_IN_SAFE_DEAD"
-DID_NOT_KILL_ENEMY_IN_SAFE_DEAD_12 = "DID_NOT_KILL_ENEMY_IN_SAFE_DEAD"
+KILLED_ENEMY_IN_TRAP_12 = "KILLED_ENEMY_IN_TRAP"
+DID_NOT_KILL_ENEMY_IN_TRAP_12 = "DID_NOT_KILL_ENEMY_IN_TRAP"
+# Feature 13
+MOVED_INTO_DANGEROUS_POSITION_13 = "MOVED_INTO_DANGEROUS_POSITION"
+DID_NOT_MOVE_INTO_DANGEROUS_POSITION_13 = "DID_NOT_MOVE_INTO_DANGEROUS_POSITION"
 
 ranges = {
     "small_pos": [2, 6, 10],
@@ -49,44 +52,48 @@ ranges = {
 }
 
 REWARDS = {
+    # ratio between occurence of positive and negative rewards
+
     # Name: [default, possible range]
-    e.OPPONENT_ELIMINATED: [0, [0]],
-    e.MOVED_UP: [-5, [-1, -5]],
-    e.MOVED_RIGHT: [-5, [-1, -5]],
-    e.MOVED_DOWN: [-5, [-1, -5]],
-    e.MOVED_LEFT: [-5, [-1, -5]],
-    e.BOMB_DROPPED: [10, ranges["small_pos"]],
-    e.BOMB_EXPLODED: [2, [-1, 2]],
-    e.COIN_FOUND: [5, ranges["small_pos"]],
-    e.CRATE_DESTROYED: [5, ranges["small_pos"]],
-    e.COIN_COLLECTED: [30, ranges["medium_pos"]],
-    e.WAITED: [-25, [-25, -15]],
+    # e.OPPONENT_ELIMINATED: [0, [0]],
+    e.MOVED_UP: [-1, [-1, -5]],
+    e.MOVED_RIGHT: [-1, [-1, -5]],
+    e.MOVED_DOWN: [-1, [-1, -5]],
+    e.MOVED_LEFT: [-1, [-1, -5]],
+    e.BOMB_DROPPED: [2, ranges["small_pos"]],
+    # e.BOMB_EXPLODED: [3, [-1, 2]],
+    # e.COIN_FOUND: [5, ranges["small_pos"]],
+    e.CRATE_DESTROYED: [2, ranges["small_pos"]],
+    e.COIN_COLLECTED: [17, ranges["medium_pos"]],
+    e.WAITED: [-1, [-25, -15]],
     e.SURVIVED_ROUND: [50, ranges["high_pos"]],
-    e.GOT_KILLED: [-50, [-50]],
-    e.INVALID_ACTION: [-50, [-50]],
+    e.GOT_KILLED: [-40, [-50]],
+    # e.INVALID_ACTION: [-50, [-50]],
     e.KILLED_OPPONENT: [70, ranges["high_pos"]],
     e.KILLED_SELF: [-100, [-100, -200]],
 
-    MOVED_TOWARDS_COIN_1: [12, ranges["small_pos_2"]],
-    MOVED_AWAY_FROM_COIN_1: [-15, ranges["small_neg_2"]],
-    DID_NOT_COLLECT_COIN_2: [-30, ranges["medium_neg"]],
-    #  [VALID_ACTION_3: [ 2, [2]],
-    #  [INVALID_ACTION_3: [ -15, [-15]],
-    MOVED_OUT_OF_BLAST_RADIUS_4: [40, ranges["medium_pos"]],
-    STAYED_IN_BLAST_RADIUS_4: [-45, ranges["medium_neg"]],
-    MOVED_TOWARDS_BOMB_FIELDS_5: [-45, ranges["medium_neg"]],
-    MOVED_AWAY_FROM_BOMB_FIELDS_5: [40, ranges["medium_pos"]],
-    STAYED_OUT_OF_BOMB_RADIUS_6: [40, ranges["medium_pos"]],
-    MOVED_INTO_BOMB_RADIUS_6: [-45, ranges["medium_neg"]],
-    PLACED_BOMB_NEXT_TO_CRATE_7: [20, ranges["small_pos_2"]],
-    MOVED_TOWARDS_CRATE_8: [5, ranges["small_pos"]],
-    MOVED_AWAY_FROM_CRATE_8: [-5, ranges["small_neg"]],
-    PLACED_BOMB_NEXT_TO_OPPONENT_9: [40, [30, 40]],
-    PLACED_USELESS_BOMB_7_9: [-50, ranges["medium_neg"]],
-    MOVED_AWAY_FROM_DANGEROUS_ENEMY_10: [5, ranges["small_pos"]],
-    MOVED_TOWARDS_DANGEROUS_ENEMY_10: [-5, ranges["small_neg_2"]],
-    # MOVED_TOWARDS_ENEMY_11: [10, ranges["small_pos_2"]],
-    #  [MOVED_AWAY_FROM_ENEMY_11: [ -10, ranges["small_pos_2"]],
-    KILLED_ENEMY_IN_SAFE_DEAD_12: [70, ranges["high_pos"]],
-    DID_NOT_KILL_ENEMY_IN_SAFE_DEAD_12: [-30, ranges["medium_neg"]],
+    MOVED_TOWARDS_COIN_1: [6, ranges["small_pos_2"]], # negative reward when equal
+    MOVED_AWAY_FROM_COIN_1: [-9, ranges["small_neg_2"]],
+    # DID_NOT_COLLECT_COIN_2: [-15, ranges["medium_neg"]],
+    VALID_ACTION_3: [15, [2]],
+    INVALID_ACTION_3: [-35, [-15]],
+    MOVED_OUT_OF_BLAST_RADIUS_4: [20, ranges["medium_pos"]], # positive reward when equal -> okay, increase negative
+    STAYED_IN_BLAST_RADIUS_4: [-20, ranges["medium_neg"]],
+    # MOVED_TOWARDS_BOMB_FIELDS_5: [-25, ranges["medium_neg"]],
+    MOVED_AWAY_FROM_BOMB_FIELDS_5: [30, ranges["medium_pos"]],
+    STAYED_OUT_OF_BOMB_RADIUS_6: [30, ranges["medium_pos"]], # nearly 0 when equal -> increase negative
+    MOVED_INTO_BOMB_RADIUS_6: [-35, ranges["medium_neg"]],
+    PLACED_BOMB_NEXT_TO_CRATE_7: [23, ranges["small_pos_2"]],
+    MOVED_TOWARDS_CRATE_8: [7, ranges["small_pos"]],
+    # MOVED_AWAY_FROM_CRATE_8: [-7, ranges["small_neg"]],
+    PLACED_BOMB_NEXT_TO_OPPONENT_9: [30, [30, 40]],
+    PLACED_USELESS_BOMB_7_9: [-30, ranges["medium_neg"]],
+    # MOVED_AWAY_FROM_DANGEROUS_ENEMY_10: [5, ranges["small_pos"]],
+    # MOVED_TOWARDS_DANGEROUS_ENEMY_10: [-5, ranges["small_neg_2"]],
+    MOVED_TOWARDS_ENEMY_11: [4, ranges["small_pos_2"]],
+    # MOVED_AWAY_FROM_ENEMY_11: [-3, ranges["small_pos_2"]],
+    KILLED_ENEMY_IN_TRAP_12: [22, ranges["high_pos"]],
+    # DID_NOT_KILL_ENEMY_IN_TRAP_12: [-10, ranges["medium_neg"]],
+    MOVED_INTO_DANGEROUS_POSITION_13: [-30, ranges["medium_neg"]], # positive reward when equal -> decrease positive
+    DID_NOT_MOVE_INTO_DANGEROUS_POSITION_13: [15, ranges["medium_neg"]],
 }

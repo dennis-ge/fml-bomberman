@@ -15,7 +15,7 @@ SET_REWARDS_OVER_ENV = True  # False for production
 #
 # ML/Hyperparameter
 #
-NUMBER_OF_FEATURES = 11
+NUMBER_OF_FEATURES = 14
 
 GREEDY_POLICY_NAME = 'greedy'
 EPSILON_GREEDY_POLICY_NAME = 'epsilon_greedy'
