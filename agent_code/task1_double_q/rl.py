@@ -1,4 +1,7 @@
 import logging
+from typing import Tuple, Union, Any
+
+from numpy import ndarray
 
 from agent_code.task1_double_q.features import *
 
@@ -9,8 +12,15 @@ class Transition:
         self.action: str = action
         self.next_state: dict = next_state
         self.reward: float = reward
-        self.state_features: np.array = state_to_features(self.state)
-        self.next_state_features: np.array = state_to_features(self.next_state)
+        self.state_features, self.printable_field = state_to_features(self.state)
+        self.next_state_features, _ = state_to_features(self.next_state)
+
+
+class EnemyTransition:
+    def __init__(self, bomb_action_possible: bool, x: int, y: int):
+        self.bomb_action_possible = bomb_action_possible
+        self.x = x
+        self.y = y
 
 
 def create_policy(name: str, logger: logging.Logger):
@@ -27,15 +37,15 @@ def create_policy(name: str, logger: logging.Logger):
 
     def epsilon_greedy_policy(action: str):
         rand_action = np.random.choice(ACTIONS)
-        chosen_action = np.random.choice([action, rand_action], p=[1 - EPSILON, EPSILON])
+        chosen_action = np.random.choice([action, rand_action], p=[1 - env.EPSILON, env.EPSILON])
         logger.debug(f"Epsilon greedy policy: Given action is '{action}', Chosen action is '{chosen_action}'")
         return chosen_action
 
     def decay_greedy_policy(action: str, curr_episode: int, prev_eps: float):
-        eps = EPSILON_START
+        eps = env.EPSILON_START
         if curr_episode > 0:
-            new_eps = prev_eps * EPSILON_DECAY
-            eps = new_eps if new_eps > EPSILON_END else EPSILON_END
+            new_eps = prev_eps * env.EPSILON_DECAY
+            eps = new_eps if new_eps > env.EPSILON_END else env.EPSILON_END
         rand_action = np.random.choice(ACTIONS)
         chosen_action = np.random.choice([action, rand_action], p=[1 - eps, eps])
         logger.debug(f"Decay epsilon greedy policy: Given action is '{action}', Chosen action is '{chosen_action}' with eps={eps}")
@@ -51,12 +61,12 @@ def create_policy(name: str, logger: logging.Logger):
     raise ValueError(f'Unknown policy {name}')
 
 
-def max_q(features: np.array, weights1: np.array, weights2: np.array) -> Tuple[float, List[int]]:
+def max_q(features: np.array, weights1: np.array, weights2: np.array) -> tuple[Union[ndarray, int, float, complex], Any, Any]:
     q_values = np.dot(features, weights1) + np.dot(features, weights2)
     q_max = np.max(q_values)
     a_max = np.where(q_values == q_max)[0]  # best actions
 
-    return q_max, a_max
+    return q_max, a_max, q_values
 
 
 def max_q_single(features: np.array, weights: np.array) -> Tuple[float, List[int]]:
@@ -80,14 +90,14 @@ def td_update(weights1: np.array, weights2: np.array, t: Transition) -> Tuple[np
             _, best_actions = max_q_single(t.next_state_features, weights1)
             selected_features = t.next_state_features[np.random.choice(best_actions), :]
             max_q_next, _ = max_q_single(selected_features, weights2)
-            td_error = t.reward + DISCOUNT_FACTOR * max_q_next - np.dot(state_action, weights1)
-            batch_updated_weights1 = batch_updated_weights1 + LEARNING_RATE * td_error * state_action
+            td_error = t.reward + env.DISCOUNT_FACTOR * max_q_next - np.dot(state_action, weights1)
+            batch_updated_weights1 = batch_updated_weights1 + env.LEARNING_RATE * td_error * state_action
         else:
             _, best_actions = max_q_single(t.next_state_features, weights2)
             selected_features = t.next_state_features[np.random.choice(best_actions), :]
             max_q_next, _ = max_q_single(selected_features, weights1)
-            td_error = t.reward + DISCOUNT_FACTOR * max_q_next - np.dot(state_action, weights2)
-            batch_updated_weights2 = batch_updated_weights2 + LEARNING_RATE * td_error * state_action
+            td_error = t.reward + env.DISCOUNT_FACTOR * max_q_next - np.dot(state_action, weights2)
+            batch_updated_weights2 = batch_updated_weights2 + env.LEARNING_RATE * td_error * state_action
 
     updated_weights1 = weights1 + batch_updated_weights1
     updated_weights2 = weights2 + batch_updated_weights2

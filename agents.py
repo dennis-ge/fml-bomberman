@@ -227,7 +227,7 @@ class AgentRunner:
         self.fake_self.logger.setLevel(s.LOG_AGENT_CODE)
         log_dir = f'agent_code/{self.code_name}/logs/'
         if not os.path.exists(log_dir): os.makedirs(log_dir)
-        log_filename = self.agent_name
+        log_filename = f'{self.agent_name}_{os.getenv("MATCH_ID", "")}'
         if train:
             log_filename = f'{self.agent_name}_train'
         handler = logging.FileHandler(f'{log_dir}{log_filename}.log', mode="w")

@@ -24,9 +24,8 @@ DECAY_GREEDY_POLICY_NAME = 'decay_greedy'
 TRANSITION_HISTORY_SIZE = 1000  # keep
 ENEMY_TRANSITION_HISTORY_SIZE = 20  # record enemy transitions with probability.
 
-EXPERIENCE_REPLAY_ACTIVATED = False
-EXPERIENCE_REPLAY_K = 100
-EXPERIENCE_REPLAY_BATCH_SIZE = 10
+EXPERIENCE_REPLAY_K = 300
+EXPERIENCE_REPLAY_BATCH_SIZE = 30
 
 
 class EnvSettings:
@@ -44,6 +43,7 @@ class EnvSettings:
     EPSILON_START: float
     EPSILON: float
     NUMBER_OF_ROUNDS: int
+    EXPERIENCE_REPLAY_ACTIVATED: bool
     REWARDS: dict
 
     def __init__(self):
@@ -52,7 +52,9 @@ class EnvSettings:
     def reload(self):
         self.PRINT_FIELD = os.environ.get("PRINT_FIELD", False)
         self.MATCH_ID = os.environ.get("MATCH_ID", f"{AGENT_NAME}-{TIMESTAMP}")
-        self.MODEL_NAME = "../../dump/models/" + os.environ.get("MODEL_NAME", f"{self.MATCH_ID}.pt")  # We store each model first within the dump directory
+        self.MODEL_NAME = "../../dump/models/" + os.environ.get("MODEL_NAME", "")  # We store each model first within the dump directory
+        if self.MODEL_NAME == "../../dump/models/":
+            self.MODEL_NAME = PROD_MODEL_NAME
         self.REWARDS_NAME = f"../../dump/rewards/{self.MATCH_ID}.pt"
         self.WEIGHTS_NAME = f"../../dump/weights/{self.MATCH_ID}.pt"
         self.POLICY_NAME = os.environ.get("POLICY", GREEDY_POLICY_NAME)
@@ -64,6 +66,9 @@ class EnvSettings:
         self.EPSILON_START = float(os.environ.get("EPS_START", 1))
         self.EPSILON_END = float(os.environ.get("EPS_MIN", 0.05))
         self.EPSILON_DECAY = float(os.environ.get("EPS_DECAY", 0.9994))
+        self.EXPERIENCE_REPLAY_ACTIVATED = (os.environ.get("EXPERIENCE_REPLAY_ACTIVATED", False))
+        if self.EXPERIENCE_REPLAY_ACTIVATED:
+            print("EXPERIENCE_REPLAY_ACTIVATED: True")
 
         self.REWARDS = {}
         if SET_REWARDS_OVER_ENV:

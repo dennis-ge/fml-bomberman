@@ -7,6 +7,8 @@
       <env name="PYTHONUNBUFFERED" value="1" />
       <env name="POLICY" value="greedy" />
       <env name="PRINT_FIELD" value="True" />
+      <env name="MATCH_ID" value="test" />
+      <env name="MODEL_NAME" value="YR4V-task1-DLB3.pt" />
     </envs>
     <option name="SDK_HOME" value="" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
@@ -14,7 +16,7 @@
     <option name="ADD_CONTENT_ROOTS" value="true" />
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main.py" />
-    <option name="PARAMETERS" value="play --agents task1 rule_based_agent rule_based_agent rule_based_agent --n-rounds 100" />
+    <option name="PARAMETERS" value="play --agents task1 rule_based_agent rule_based_agent rule_based_agent  --n-rounds 100" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />

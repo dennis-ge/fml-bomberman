@@ -2,15 +2,16 @@ from typing import *
 
 import numpy as np
 
-from agent_code.task1.agent_settings import *
+from agent_code.task1_double_q.agent_settings import *
 from settings import *
 
 
-def beautify_output(field: np.array, features: np.array, model: np.array, q_values: np.array):
+def beautify_output(field: np.array, features: np.array, weights1: np.array, weights2: np.array, q_values: np.array):
     out = ""
     if env.PRINT_FIELD:
         out += f"Field {field}\n"
-    out += f"Model {[f'{round(weight, 2)} ({idx})' for idx, weight in enumerate(model)]}\n"
+    out += f"Weights 1 {[f'{round(weight, 2)} ({idx})' for idx, weight in enumerate(weights1)]}\n"
+    out += f"Weights 2 {[f'{round(weight, 2)} ({idx})' for idx, weight in enumerate(weights2)]}\n"
     out += "Feature   " + "\t ".join([f'{i}' for i in range(len(features[0]))]) + "\n"
     for i in range(len(features)):
         out += f"{ACTIONS[i]:6}: {features[i]}".replace("0.", " .") + f": {round(q_values[i], 3)}\n"

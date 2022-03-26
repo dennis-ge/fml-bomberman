@@ -1,9 +1,11 @@
 import pickle
+from timeit import default_timer as timer
 
 import numpy as np
 
 from agent_code.task1_double_q.agent_settings import *
 from agent_code.task1_double_q.features import state_to_features
+from agent_code.task1_double_q.game_info import beautify_output
 from agent_code.task1_double_q.rl import create_policy, max_q
 
 
@@ -21,24 +23,22 @@ def setup(self):
 
     :param self: This object is passed to all callbacks and you can set arbitrary values.
     """
-    # decay policy
     self.episode = 0
-    self.prev_eps = EPSILON_START
+    self.prev_eps = env.EPSILON_START
+    env.reload()
 
-    self.policy = create_policy(policy_name, self.logger)
-    if self.train or not os.path.isfile(MODEL_NAME_1) and not os.path.isfile(MODEL_NAME_2):
-        self.logger.info("Setting up model from scratch.")
-        weights1 = np.random.rand(NUMBER_OF_FEATURES)
-        self.weights1 = weights1 / weights1.sum()
-        weights2 = np.random.rand(NUMBER_OF_FEATURES)
-        self.weights2 = weights2 / weights2.sum()
+    self.policy = create_policy(env.POLICY_NAME, self.logger)
+    if self.train or not os.path.isfile(env.MODEL_NAME):
+        self.logger.info(f"Setting up model from scratch.")
+        weights = np.random.rand(NUMBER_OF_FEATURES)
+        self.weights1 = weights / weights.sum()
+        self.weights2 = weights / weights.sum()
     else:
-        self.logger.info("Loading model from saved state.")
-        with open(MODEL_NAME_1, "rb") as file:
-            self.weights1 = pickle.load(file)
-        with open(MODEL_NAME_2, "rb") as file:
-            self.weights2 = pickle.load(file)
-
+        self.logger.info(f"Loading model from saved state: {env.MODEL_NAME}")
+        with open(env.MODEL_NAME, "rb") as file:
+            weights = pickle.load(file)
+            self.weights1 = weights[:NUMBER_OF_FEATURES]
+            self.weights2 = weights[NUMBER_OF_FEATURES:]
 
 def act(self, game_state: dict) -> str:
     """
@@ -49,20 +49,26 @@ def act(self, game_state: dict) -> str:
     :param game_state: The dictionary that describes everything on the board.
     :return: The action to take as a string.
     """
-    # if self.train and random.random() < EPSILON:
-    #     rand_action = np.random.choice(ACTIONS, p=[.22, .22, .22, .22, .12])
-    #     self.logger.debug(f"Chosen the following action purely at random: {rand_action}")
-    #     return rand_action
+    start = timer()
 
     self.logger.debug(f"--- Choosing an action for step {game_state['step']} at position {game_state['self'][3]}")
 
-    # get best action based on q_values
-    features = state_to_features(game_state)
-    _, best_actions = max_q(features, self.weights1, self.weights2)
-    self.logger.debug(f"Features: {[list(item) for item in features]}, Weights1: {self.weights1}, Weights2: {self.weights2}")
+    # if self.train and np.random.random() < env.EPSILON:
+    #     rand_action = np.random.choice(ACTIONS, p=[.167, .167, .167, .167, .166, .166])
+    #     self.logger.debug(f"Chosen the following action purely at random: {rand_action}")
+    #     return rand_action
 
-    if policy_name == DECAY_GREEDY_POLICY_NAME:
+    # get best action based on q_values
+    features, printable_field = state_to_features(game_state)
+    _, best_actions, q_values = max_q(features, self.weights1, self.weights2)
+
+    self.logger.debug(beautify_output(printable_field, features, self.weights1, self.weights2, q_values))
+
+    if env.POLICY_NAME == DECAY_GREEDY_POLICY_NAME:
         action, self.prev_eps = self.policy(ACTIONS[np.random.choice(best_actions)], self.episode, self.prev_eps)
         return action
 
-    return self.policy(ACTIONS[np.random.choice(best_actions)])
+    action = self.policy(ACTIONS[np.random.choice(best_actions)])
+    end = timer()
+    self.logger.debug(f"Elapsed time for act: {round(end - start, 5)}s")
+    return action

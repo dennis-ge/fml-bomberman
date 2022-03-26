@@ -12,36 +12,46 @@ def state_to_features(game_state: dict) -> Union[Tuple[None, None], Tuple[np.nda
     if game_state is None:
         return None, None
 
+    field = game_state["field"]
+    free_space = field == 0
+
     agent_pos: Tuple[int, int] = game_state["self"][3]
     bomb_action_possible = game_state["self"][2]
 
     coins = game_state["coins"]
-    field = game_state["field"]
+    crates = [(x, y) for x, y in np.ndindex(field.shape) if (field[x, y] == 1)]
+
     bombs = game_state["bombs"]
     explosion_map = game_state["explosion_map"]
     explosions = [(x, y) for x, y in np.ndindex(explosion_map.shape) if (explosion_map[x, y] != 0)]
-    enemies_pos = [enemy[3] for enemy in game_state["others"]]
-    crates = [(x, y) for x, y in np.ndindex(field.shape) if (field[x, y] == 1)]
-    enemies_nearby = get_nearby_enemies(field, agent_pos, game_state["others"])
-
     blast_radius = get_blast_radius(field, bombs)
-    bomb_fields = get_bomb_fields(field, bombs, explosion_map)
+    bomb_fields = explosions + blast_radius
+
+    enemies_pos = [enemy[3] for enemy in game_state["others"]]
+    enemies_nearby = get_nearby_enemies(field.shape[0], field.shape[1], agent_pos, enemies_pos)
+
+    safe_fields = get_safe_fields(field, bomb_fields, enemies_pos)
+
+    escape_possible = is_escape_possible(field, bomb_fields, agent_pos, enemies_pos)
 
     stacked_channels = np.vstack((
         [env.BIAS] * len(ACTIONS),
-        feat_1(field, coins, agent_pos),
-        feat_2(coins, agent_pos),
-        feat_3(field, bomb_fields, bomb_action_possible, agent_pos, enemies_pos=enemies_pos),
-        feat_4(field, bomb_fields, agent_pos, enemies_pos=enemies_pos),
-        feat_5(field, bomb_fields, agent_pos),
-        feat_6(field, bomb_fields, agent_pos),
-        feat_7(field, bomb_fields, bomb_action_possible, agent_pos, enemies_pos=enemies_pos),
-        feat_8(field, bomb_action_possible, agent_pos, crates),
-        feat_9(field, bomb_fields, bomb_action_possible, agent_pos, enemies_pos=enemies_pos),
-        feat_10(field, agent_pos, bomb_action_possible, enemies_nearby=enemies_nearby, bomb_fields=bomb_fields),
-        feat_11(field, agent_pos, bomb_action_possible, enemies_pos=enemies_pos),
+        feat_1(free_space=free_space, coins=coins, agent_pos=agent_pos),
+        feat_2(coins=coins, agent_pos=agent_pos),
+        feat_3(field=field, bomb_fields=bomb_fields, bomb_action_possible=bomb_action_possible, agent_pos=agent_pos,
+               enemies_pos=enemies_pos, safe_fields=safe_fields, escape_possible=escape_possible),
+        feat_4(field=field, free_space=free_space, bomb_fields=bomb_fields, agent_pos=agent_pos, safe_fields=safe_fields),
+        feat_5(field_max_x=field.shape[0], field_max_y=field.shape[1], free_space=free_space, bomb_fields=bomb_fields, agent_pos=agent_pos),
+        feat_6(field=field, bomb_fields=bomb_fields, agent_pos=agent_pos),
+        feat_7(field=field, bomb_action_possible=bomb_action_possible, agent_pos=agent_pos, escape_possible=escape_possible),
+        feat_8(free_space=free_space, bomb_action_possible=bomb_action_possible, agent_pos=agent_pos, crates=crates),
+        feat_9(bomb_action_possible=bomb_action_possible, pos=agent_pos, enemies_pos=enemies_pos, escape_possible=escape_possible),
+        feat_10(free_space=free_space, agent_pos=agent_pos, bomb_action_possible=bomb_action_possible, enemies_nearby=enemies_nearby,
+                bomb_fields=bomb_fields),
+        feat_11(free_space=free_space, agent_pos=agent_pos, bomb_action_possible=bomb_action_possible, enemies_pos=enemies_pos),
         feat_12(field, agent_pos, bomb_action_possible, explosions=explosions, blast_radius=blast_radius, enemies_pos=enemies_pos),
-        feat_13(field, agent_pos, explosions=explosions, blast_radius=blast_radius, enemies_nearby=enemies_nearby)
+        feat_13(field=field, free_space=free_space, agent_pos=agent_pos, explosions=explosions, blast_radius=blast_radius,
+                enemies_nearby=enemies_nearby)
     ))
 
     printable_field = ""
@@ -63,7 +73,7 @@ def state_to_features(game_state: dict) -> Union[Tuple[None, None], Tuple[np.nda
     return stacked_channels.T, printable_field
 
 
-def feat_1(field: np.ndarray, coins: List[Tuple[int, int]], agent_pos: Tuple[int, int]) -> np.ndarray:
+def feat_1(free_space: np.ndarray, coins: List[Tuple[int, int]], agent_pos: Tuple[int, int]) -> np.ndarray:
     """
     Agent moves towards coin
     - only one entry in the feature is equal to 1
@@ -71,7 +81,6 @@ def feat_1(field: np.ndarray, coins: List[Tuple[int, int]], agent_pos: Tuple[int
     feature = np.zeros(len(ACTIONS))
 
     if len(coins) > 0:
-        free_space = field == 0
         best_direction, _ = look_for_targets(free_space, agent_pos, coins)
         for idx, action in enumerate(ACTIONS):
             if action == "WAIT" or action == "BOMB":
@@ -100,7 +109,8 @@ def feat_2(coins: List[Tuple[int, int]], agent_pos: Tuple[int, int]) -> np.ndarr
     return feature
 
 
-def feat_3(field: np.ndarray, bomb_fields: List[Tuple[int, int]], bomb_action_possible: bool, agent_pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]]) -> np.ndarray:
+def feat_3(field: np.ndarray, bomb_fields: List[Tuple[int, int]], bomb_action_possible: bool, agent_pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]],
+           safe_fields: List[Tuple[int, int]], escape_possible: bool) -> np.ndarray:
     """
      Agent performs valid action. A valid action is an action where the agent does
      not move out of the field, into walls, other enemies or crates
@@ -119,13 +129,13 @@ def feat_3(field: np.ndarray, bomb_fields: List[Tuple[int, int]], bomb_action_po
         if (new_x, new_y) in enemies_pos:
             continue
 
-        if action == "WAIT" and not wait_is_intelligent(field, bomb_fields, agent_pos, enemies_pos):
+        if action == "WAIT" and not wait_is_intelligent(pos=agent_pos, bomb_fields=bomb_fields, safe_fields=safe_fields):
             continue
 
         if action == "BOMB" and not bomb_action_possible:
             continue
 
-        if action == "BOMB" and not escape_possible(field, bomb_fields, agent_pos, enemies_pos):
+        if action == "BOMB" and not escape_possible:
             continue
 
         feature[idx] = 1
@@ -133,7 +143,7 @@ def feat_3(field: np.ndarray, bomb_fields: List[Tuple[int, int]], bomb_action_po
     return feature
 
 
-def feat_4(field: np.ndarray, bomb_fields: List[Tuple[int, int]], agent_pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]]) -> np.ndarray:
+def feat_4(field: np.ndarray, free_space: np.ndarray, bomb_fields: List[Tuple[int, int]], agent_pos: Tuple[int, int], safe_fields: List[Tuple[int, int]]) -> np.ndarray:
     """
     Agent moves out of the blast radius (and does not move into other)
     """
@@ -143,8 +153,6 @@ def feat_4(field: np.ndarray, bomb_fields: List[Tuple[int, int]], agent_pos: Tup
         return feature
 
     if agent_pos in bomb_fields:
-        safe_fields = get_safe_fields(field, bomb_fields, enemies_pos)
-        free_space = field == 0
         best_direction, _ = look_for_targets(free_space, agent_pos, safe_fields)
 
         for idx, action in enumerate(ACTIONS):
@@ -161,20 +169,19 @@ def feat_4(field: np.ndarray, bomb_fields: List[Tuple[int, int]], agent_pos: Tup
     return feature
 
 
-def feat_5(field: np.ndarray, bomb_fields: List[Tuple[int, int]], agent_pos: Tuple[int, int]) -> np.ndarray:
+def feat_5(field_max_x: int, field_max_y: int, free_space: np.ndarray, bomb_fields: List[Tuple[int, int]], agent_pos: Tuple[int, int]) -> np.ndarray:
     """
     Agent moves/stays out of bomb radius/explosion map (independent if he is currently in or out of the bomb radius)
     """
     feature = np.ones(len(ACTIONS))
 
-    nearby_field = get_nearby_field(field, agent_pos)
+    nearby_field = get_nearby_field(field_max_x=field_max_x, field_max_y=field_max_y, pos=agent_pos)
     bomb_fields_nearby = []
     for bomb in bomb_fields:
         if bomb in nearby_field:
             bomb_fields_nearby.append(nearby_field)
 
     if len(bomb_fields_nearby) > 0:
-        free_space = field == 0
         best_direction, _ = look_for_targets(free_space, agent_pos, bomb_fields_nearby)
 
         for idx, action in enumerate(ACTIONS):
@@ -199,7 +206,7 @@ def feat_6(field: np.ndarray, bomb_fields: List[Tuple[int, int]], agent_pos: Tup
     """
     feature = np.zeros(len(ACTIONS))
 
-    nearby_field = get_nearby_field(field, agent_pos)
+    nearby_field = get_nearby_field(field_max_x=field.shape[0], field_max_y=field.shape[1], pos=agent_pos)
     bomb_fields_nearby = []
     for bomb in bomb_fields:
         if bomb in nearby_field:
@@ -224,7 +231,7 @@ def feat_6(field: np.ndarray, bomb_fields: List[Tuple[int, int]], agent_pos: Tup
     return feature
 
 
-def feat_7(field: np.ndarray, bomb_fields: List[Tuple[int, int]], bomb_action_possible: bool, agent_pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]]) -> np.ndarray:
+def feat_7(field: np.ndarray, bomb_action_possible: bool, agent_pos: Tuple[int, int], escape_possible: bool) -> np.ndarray:
     """
     Agent places bomb next to crate if he can escape
     """
@@ -234,13 +241,13 @@ def feat_7(field: np.ndarray, bomb_fields: List[Tuple[int, int]], bomb_action_po
         return feature
 
     if is_crate_nearby(field, agent_pos):
-        if escape_possible(field, bomb_fields, agent_pos, enemies_pos):
+        if escape_possible:
             feature[ACTIONS.index("BOMB")] = 1
 
     return feature
 
 
-def feat_8(field: np.ndarray, bomb_action_possible: bool, agent_pos: Tuple[int, int], crates) -> np.ndarray:
+def feat_8(free_space: np.ndarray, bomb_action_possible: bool, agent_pos: Tuple[int, int], crates) -> np.ndarray:
     """
     Agent moves towards crate, if he is able to place a bomb
     """
@@ -252,21 +259,20 @@ def feat_8(field: np.ndarray, bomb_action_possible: bool, agent_pos: Tuple[int, 
     if len(crates) == 0:
         return feature
 
-    free_space = field == 0
-    best_direction, _ = look_for_targets(free_space, agent_pos, crates)
+    best_direction, _ = look_for_targets(free_space, agent_pos, crates, distance_satisfied=1)
 
     for idx, action in enumerate(ACTIONS):
         if action == "BOMB" or action == "WAIT":
             continue
 
-        new_x, new_y = get_new_position(action, agent_pos)
-        if (new_x, new_y) == best_direction:
+        new_pos = get_new_position(action, agent_pos)
+        if new_pos == best_direction:
             feature[idx] = 1
 
     return feature
 
 
-def feat_9(field: np.ndarray, bomb_fields: List[Tuple[int, int]], bomb_action_possible: bool, pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]]) -> np.ndarray:
+def feat_9(bomb_action_possible: bool, pos: Tuple[int, int], enemies_pos: List[Tuple[int, int]], escape_possible: bool) -> np.ndarray:
     """
     Agent places bomb next to opponent if he can escape
     """
@@ -276,13 +282,14 @@ def feat_9(field: np.ndarray, bomb_fields: List[Tuple[int, int]], bomb_action_po
         return feature
 
     if is_opponent_nearby(pos, enemies_pos):
-        if escape_possible(field, bomb_fields, pos, enemies_pos):
+        if escape_possible:
             feature[ACTIONS.index("BOMB")] = 1
 
     return feature
 
 
-def feat_10(field: np.ndarray, agent_pos: Tuple[int, int], bomb_action_possible: bool, enemies_nearby: List[Tuple[int, int]], bomb_fields: List[Tuple[int, int]]) -> np.ndarray:
+def feat_10(free_space: np.ndarray, agent_pos: Tuple[int, int], bomb_action_possible: bool, enemies_nearby: List[Tuple[int, int]],
+            bomb_fields: List[Tuple[int, int]]) -> np.ndarray:
     """
     Agent moves away if he has no bom action available and enemies are around having a bomb action available
     - can contain multiple 1s
@@ -290,7 +297,6 @@ def feat_10(field: np.ndarray, agent_pos: Tuple[int, int], bomb_action_possible:
     feature = np.zeros(len(ACTIONS))
 
     if len(enemies_nearby) > 0 and not bomb_action_possible:
-        free_space = field == 0
         best_direction, _ = look_for_targets(free_space, agent_pos, enemies_nearby)
 
         for idx, action in enumerate(ACTIONS):
@@ -308,7 +314,7 @@ def feat_10(field: np.ndarray, agent_pos: Tuple[int, int], bomb_action_possible:
     return feature
 
 
-def feat_11(field: np.ndarray, agent_pos: Tuple[int, int], bomb_action_available: bool, enemies_pos: List[Tuple[int, int]]) -> np.ndarray:
+def feat_11(free_space: np.ndarray, agent_pos: Tuple[int, int], bomb_action_possible: bool, enemies_pos: List[Tuple[int, int]]) -> np.ndarray:
     """
     Agent moves to enemy
     - contains one 1
@@ -318,12 +324,11 @@ def feat_11(field: np.ndarray, agent_pos: Tuple[int, int], bomb_action_available
     feature = np.zeros(len(ACTIONS))
 
     # the agent just dropped a bomb, don't move to enemy as this could lead to the own death
-    if not bomb_action_available:
+    if not bomb_action_possible:
         return feature
 
     if len(enemies_pos) > 0:
-        free_space = field == 0
-        best_direction, _ = look_for_targets(free_space, agent_pos, enemies_pos)
+        best_direction, _ = look_for_targets(free_space, agent_pos, enemies_pos, distance_satisfied=1)
 
         for idx, action in enumerate(ACTIONS):
             new_pos = get_new_position(action, agent_pos)
@@ -346,7 +351,8 @@ def feat_12(field: np.ndarray, agent_pos: Tuple[int, int], bomb_action_possible:
     """
     feature = np.zeros(len(ACTIONS))
 
-    enemy_trapped_tiles, possible_enemy_trapped_tiles = get_trapped_tiles(field, enemies_pos, explosions, blast_radius)
+    enemy_trapped_tiles, possible_enemy_trapped_tiles = get_trapped_tiles(field=field, positions=enemies_pos,
+                                                                          explosions=explosions, blast_radius=blast_radius)
 
     # wait if the enemies only exit is the current position
     if agent_pos in enemy_trapped_tiles and agent_pos not in blast_radius and agent_pos not in explosions:
@@ -354,28 +360,27 @@ def feat_12(field: np.ndarray, agent_pos: Tuple[int, int], bomb_action_possible:
 
     if bomb_action_possible:
         # set bomb if trapped tiles reachable within neighbor fields
-        if trapped_tiles_pos_reachable(agent_pos, enemy_trapped_tiles, possible_enemy_trapped_tiles):
+        if trapped_tiles_pos_reachable(pos=agent_pos, trapped_tiles=enemy_trapped_tiles,
+                                       possible_trapped_tiles=possible_enemy_trapped_tiles):
             feature[ACTIONS.index("BOMB")] = 1
 
     return feature
 
 
-def feat_13(field: np.ndarray, agent_pos: Tuple[int, int], explosions: List[Tuple[int, int]], blast_radius: List[Tuple[int, int]],
+def feat_13(field: np.ndarray, free_space: np.ndarray, agent_pos: Tuple[int, int], explosions: List[Tuple[int, int]], blast_radius: List[Tuple[int, int]],
             enemies_nearby: List[Tuple[int, int]]) -> np.ndarray:
     """
     Agent moves into dangerous position (possibility of death)
     """
     feature = np.zeros(len(ACTIONS))
 
-    free_space = field == 0
-
-    best_direction_enemies, _ = look_for_targets(free_space, agent_pos, enemies_nearby)
+    best_direction_enemies, _ = look_for_targets(free_space, agent_pos, enemies_nearby, distance_satisfied=1)
     for idx, action in enumerate(ACTIONS):
         new_x, new_y = get_new_position(action, agent_pos)
 
-        if field[new_x, new_y] == -1 or field[new_x, new_y] == 1:  # agent won't die moving into wall or crate
-            feature[idx] = 1
-            continue
+        # if field[new_x, new_y] == -1 or field[new_x, new_y] == 1:  # agent won't die moving into wall or crate
+        #     feature[idx] = 1
+        #     continue
 
         if agent_pos in blast_radius:
             if action == "WAIT":

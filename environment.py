@@ -259,7 +259,7 @@ class GenericWorld:
                             explosion.owner.add_event(e.KILLED_OPPONENT)
                             explosion.owner.trophies.append(pygame.transform.smoothscale(a.avatar, (15, 15)))
 
-                        if a.name == "task1" and not a.train and len(self.active_agents) > 0 and len(self.agents) > 0:
+                        if (a.name == "task1" or a.name == "task1_double_q") and not a.train and len(self.active_agents) > 0 and len(self.agents) > 0:
                             self.relevant_agent_died = True
                             pass
 
@@ -284,7 +284,8 @@ class GenericWorld:
         self.round_statistics[self.round_id] = {
             "steps": self.step,
             **{key: sum(a.statistics[key] for a in self.agents) for key in ["coins", "kills", "suicides"]},
-            **{f"{key}_train": sum(a.statistics[key] for a in self.agents if a.name == "task1") for key in ["coins", "kills", "suicides"]}
+            **{f"{key}_train": sum(a.statistics[key] for a in self.agents if a.name == "task1") for key in ["coins", "kills", "suicides"]},
+            **{f"{key}_train": sum(a.statistics[key] for a in self.agents if a.name == "task1_double_q") for key in ["coins", "kills", "suicides"]}
         }
 
     def time_to_stop(self):

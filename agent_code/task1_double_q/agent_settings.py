@@ -1,78 +1,85 @@
 import os
 from datetime import datetime, timezone
-from typing import Tuple
 
-import events as e
+from agent_code.task1_double_q.rewards import *
 
 #
-# Agent settings
+# General settings
 #
+
+
 AGENT_NAME = "task1_double_q"
+ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 TIMESTAMP = datetime.now(timezone.utc).strftime("%m-%dT%H:%M")
-MODEL_NAME_1 = f"../../dump/1_{AGENT_NAME}-{TIMESTAMP}.pt"
-MODEL_NAME_2 = f"../../dump/2_{AGENT_NAME}-{TIMESTAMP}.pt"
-REWARDS_NAME = f"../../dump/rewards-{AGENT_NAME}-{TIMESTAMP}.csv"
-
-ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT'] #, 'BOMB']
-
+PROD_MODEL_NAME = f"./models/{AGENT_NAME}-eps-v2.pt"
+SET_REWARDS_OVER_ENV = True  # False for production
 #
 # ML/Hyperparameter
 #
+NUMBER_OF_FEATURES = 14
+
 GREEDY_POLICY_NAME = 'greedy'
 EPSILON_GREEDY_POLICY_NAME = 'epsilon_greedy'
 DECAY_GREEDY_POLICY_NAME = 'decay_greedy'
 
-policy_name = os.environ.get("POLICY", EPSILON_GREEDY_POLICY_NAME)
+TRANSITION_HISTORY_SIZE = 1000  # keep
+ENEMY_TRANSITION_HISTORY_SIZE = 20  # record enemy transitions with probability.
 
-NUMBER_OF_ROUNDS = os.getenv("N_ROUNDS", 100)
-NUMBER_OF_FEATURES = 5
-EPSILON = os.environ.get("EPS", 0.15)  # eps for epsilon greedy policy
-EPSILON_START = os.environ.get("EPS_START", 1)
-EPSILON_END = os.environ.get("EPS_MIN", 0.05)
-EPSILON_DECAY = os.environ.get("EPS_DECAY", 0.9994)
-
-LEARNING_RATE = os.environ.get("ALPHA", 0.1)  # alpha learning rate
-DISCOUNT_FACTOR = os.environ.get("GAMMA", 0.60)  # gamma discount factor
-BIAS = os.environ.get("BIAS", 0.1)
-TRANSITION_HISTORY_SIZE = 3  # keep only ... last transitions
-RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
-
-# Custom Events
-MOVED_TOWARDS_COIN = "MOVED_TOWARDS_COIN"
-MOVED_AWAY_FROM_COIN = "MOVED_AWAY_FROM_COIN"
-
-REWARDS = {
-    # Positive
-    e.CRATE_DESTROYED: 2,  # A crate was destroyed by own bomb.
-    e.COIN_FOUND: 5,  # A coin has been revealed by own bomb.
-    e.BOMB_DROPPED: 5,
-    e.BOMB_EXPLODED: 2,  # Own bomb dropped earlier on has exploded.
-    e.COIN_COLLECTED: 10,
-    e.OPPONENT_ELIMINATED: 0,
-    e.KILLED_OPPONENT: 20,
-    e.SURVIVED_ROUND: 10,
-    MOVED_TOWARDS_COIN: 5,
-    # Negative
-    MOVED_AWAY_FROM_COIN: -10,
-    e.MOVED_UP: -1,
-    e.MOVED_DOWN: -1,
-    e.MOVED_LEFT: -1,
-    e.MOVED_RIGHT: -1,
-    e.WAITED: -50,
-    e.GOT_KILLED: -50,
-    e.INVALID_ACTION: -50,  # Picked a non-existent action or one that couldn’t be executed.
-    e.KILLED_SELF: -100,
-}
+EXPERIENCE_REPLAY_K = 300
+EXPERIENCE_REPLAY_BATCH_SIZE = 30
 
 
-def get_new_position(action: str, x: int, y: int) -> Tuple[int, int]:
-    switch = {
-        'UP': (x, y - 1),
-        'DOWN': (x, y + 1),
-        'RIGHT': (x + 1, y),
-        'LEFT': (x - 1, y),
-        'WAIT': (x, y),
-        'BOMB': (x, y),
-    }
+class EnvSettings:
+    PRINT_FIELD: bool
+    MATCH_ID: str
+    MODEL_NAME_1: str
+    MODEL_NAME_2: str
+    MODEL_NAME: str
+    WEIGHTS_NAME: str
+    REWARDS_NAME: str
+    POLICY_NAME: str
+    BIAS: float
+    LEARNING_RATE: float
+    DISCOUNT_FACTOR: float
+    EPSILON_DECAY: float
+    EPSILON_END: float
+    EPSILON_START: float
+    EPSILON: float
+    NUMBER_OF_ROUNDS: int
+    EXPERIENCE_REPLAY_ACTIVATED: bool
+    REWARDS: dict
 
-    return switch[action]
+    def __init__(self):
+        self.reload()
+
+    def reload(self):
+        self.PRINT_FIELD = os.environ.get("PRINT_FIELD", False)
+        self.MATCH_ID = os.environ.get("MATCH_ID", f"{AGENT_NAME}-{TIMESTAMP}")
+        self.MODEL_NAME = "../../dump/models/" + os.environ.get("MODEL_NAME", "")  # We store each model first within the dump directory
+        if self.MODEL_NAME == "../../dump/models/":
+            self.MODEL_NAME = PROD_MODEL_NAME
+        self.REWARDS_NAME = f"../../dump/rewards/{self.MATCH_ID}.pt"
+        self.WEIGHTS_NAME = f"../../dump/weights/{self.MATCH_ID}.pt"
+        self.POLICY_NAME = os.environ.get("POLICY", GREEDY_POLICY_NAME)
+        self.NUMBER_OF_ROUNDS = int(os.getenv("N_ROUNDS", 100))
+        self.EPSILON = float(os.environ.get("EPS", 0.12))  # eps for epsilon greedy policy
+        self.BIAS = float(os.environ.get("BIAS", 0.1))
+        self.DISCOUNT_FACTOR = float(os.environ.get("GAMMA", 0.92))  # gamma discount factor
+        self.LEARNING_RATE = float(os.environ.get("ALPHA", 0.05))  # alpha learning rate
+        self.EPSILON_START = float(os.environ.get("EPS_START", 1))
+        self.EPSILON_END = float(os.environ.get("EPS_MIN", 0.05))
+        self.EPSILON_DECAY = float(os.environ.get("EPS_DECAY", 0.9994))
+        self.EXPERIENCE_REPLAY_ACTIVATED = (os.environ.get("EXPERIENCE_REPLAY_ACTIVATED", False))
+        if self.EXPERIENCE_REPLAY_ACTIVATED:
+            print("EXPERIENCE_REPLAY_ACTIVATED: True")
+
+        self.REWARDS = {}
+        if SET_REWARDS_OVER_ENV:
+            for name, item in REWARDS.items():
+                self.REWARDS[name] = int(os.environ.get(name, item[0]))
+        else:
+            for name, item in REWARDS.items():
+                self.REWARDS[name] = item[1]
+
+
+env = EnvSettings()

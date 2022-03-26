@@ -84,6 +84,7 @@ def get_opponents(arg):
         "random": " random_agent random_agent random_agent",
         "peaceful": " peaceful_agent peaceful_agent peaceful_agent",
         "coin": " coin_collector_agent coin_collector_agent coin_collector_agent",
+        "mix": " rule_based_agent coin_collector_agent peaceful",
     }
     return switch.get(arg)
 
@@ -115,7 +116,7 @@ class EnvVariables:
                 os.environ[item[0]] = f"{item[1]}"
 
 
-def play_iteration(agents: str, n_rounds: int, scenario: str, match_name: str, stats_file: str, train: bool = True):
+def play_iteration(agents: str, n_rounds: int, scenario: str, match_name: str, stats_file: str, train: bool = True, seed: bool = False):
     game_args = ["play", "--no-gui"]
     game_args.extend(["--agents", *agents.split(" ")])
     game_args.extend(["--n-rounds", str(n_rounds)])
@@ -124,18 +125,21 @@ def play_iteration(agents: str, n_rounds: int, scenario: str, match_name: str, s
     if train:
         game_args.extend(["--match-name", match_name])
         game_args.extend(["--train", str(1)])
+    if seed:
+        game_args.extend(["--seed", str(42)])
 
     play(game_args)
 
 
 class Runner:
 
-    def __init__(self, scenario: str, agent: str, opponents: str, n_rounds: int, runner_id: str = None):
+    def __init__(self, scenario: str, agent: str, opponents: str, n_rounds: int, runner_id: str = None, seed: bool = False):
         self.logger = get_logger(__name__)
         self.scenario = scenario
         self.primary_agent = agent
         self.agents = agent + get_opponents(opponents)
         self.n_rounds = n_rounds
+        self.seed =seed
         self.runner_id = runner_id if runner_id else unique_id()
         self.logger.info(f"Starting runner {self.runner_id} for {self.primary_agent}")
 
@@ -161,14 +165,28 @@ class Runner:
                 json.dump(all_matches, file)
 
     def start_simple(self, env: EnvVariables):
-        env.match_id = "task1-eps"
+        env.match_id = f"{self.primary_agent}-eps"
         env.model_name = f"{env.match_id}.pt"
         env.n_rounds = self.n_rounds
         self._run(0, env, None)
 
-        with open(f"agent_code/task1/models/{env.model_name}", "rb") as file:
-            model = pickle.load(file)
-            self.logger.debug(f"Model {[f'{round(weight, 2)} ({idx})' for idx, weight in enumerate(model)]}")
+        if self.primary_agent != "task1_double_q":
+            with open(f"agent_code/{self.primary_agent}/models/{env.model_name}", "rb") as file:
+                model = pickle.load(file)
+                print(f"Model {[f'{round(weight, 2)} ({idx})' for idx, weight in enumerate(model)]}")
+
+        with open(f'agent_code/{self.primary_agent}/logs/{self.primary_agent}_train.log', 'r') as file:
+            data = file.read().replace('\n', '')
+
+        reward_occ = {}
+        for idx, reward in enumerate(REWARDS.keys()):
+            reward_occ[idx] = [reward, data.count(reward)]
+
+        for idx in range(0, len(reward_occ.keys()), 2):
+            output = f"{reward_occ[idx][0]:40} - {reward_occ[idx][1]:5} |"
+            if idx + 1 < len(reward_occ.keys()):
+                output += f"{reward_occ[idx + 1][1]:5} - {reward_occ[idx + 1][0]:40}"
+            print(output)
 
     def _run(self, idx: int, env: EnvVariables, rewards: Union[List[Tuple[str, int]], None]):
         self.logger.info(f"Executing training iteration {idx}", extra={"match_name": env.match_id, "agents": self.agents,
@@ -178,11 +196,11 @@ class Runner:
         stats_file = f"results/{env.match_id}_train.json"
 
         env.set(rewards)
-        play_iteration(agents=self.agents, scenario=self.scenario, n_rounds=env.n_rounds, match_name=env.match_id, stats_file=stats_file)
+        play_iteration(agents=self.agents, scenario=self.scenario, n_rounds=env.n_rounds, match_name=env.match_id, stats_file=stats_file, seed=self.seed)
 
         with open(stats_file, "rb") as f:
             stats = json.load(f)
-        self.logger.info(f"Statistics for iteration {idx} ({env.match_id})", extra=stats["by_agent"]["task1"])
+        self.logger.info(f"Statistics for iteration {idx} ({env.match_id})", extra=stats["by_agent"][self.primary_agent])
 
         if rewards:
             stats_file = f"results/{env.match_id}.json"
@@ -195,7 +213,7 @@ class Runner:
                                                                          "policy": env.policy})
             play_iteration(agents=self.agents, scenario=self.scenario, n_rounds=env.n_rounds, match_name=env.match_id, stats_file=stats_file, train=False)
 
-        if not rewards:
+        if not rewards and os.path.isfile(f'dump/models/{env.model_name}'):
             shutil.copy2(f'dump/models/{env.model_name}', f'agent_code/{self.primary_agent}/models/{env.model_name}')
 
 
@@ -210,6 +228,10 @@ def main(argv=None):
     parser.add_argument("--s", type=str, default="classic")
     parser.add_argument("--simple", type=bool, default=False)
     parser.add_argument("--samples", type=int, default=10)
+    parser.add_argument("--seed", type=bool, default=False)
+    parser.add_argument("--eps", type=float, default=0.15)
+    parser.add_argument("--gamma", type=float, default=0.80)
+    parser.add_argument("--alpha", type=float, default=0.05)
 
     args = parser.parse_args(argv)
 
@@ -218,8 +240,8 @@ def main(argv=None):
         # all_rewards = get_rewards(args.samples)
         all_rewards = get_biased_rewards(args.samples)
 
-    env = EnvVariables(policy="epsilon_greedy", gamma=0.90, eps=0.15, alpha=0.05)
-    sr = Runner(scenario=args.s, n_rounds=args.rounds, agent=args.agent, opponents=args.o)
+    env = EnvVariables(policy="epsilon_greedy", gamma=args.gamma, eps=args.eps, alpha=args.alpha)
+    sr = Runner(scenario=args.s, n_rounds=args.rounds, agent=args.agent, opponents=args.o, seed=args.seed)
 
     if args.simple:
         sr.start_simple(env)
