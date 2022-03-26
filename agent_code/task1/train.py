@@ -280,20 +280,6 @@ def check_for_multiple_ones(feature_vector: np.ndarray, self_action: str) -> boo
     return False
 
 
-def moved_towards_crate(old_state, self_action: str, crates: List[Tuple[int, int]]) -> bool:
-    """
-    Feature 8: Checks whether the agent moved towards a crate.
-    """
-    feature_old = feat_8(old_state["field"], old_state["self"][2], old_state["self"][3], crates)
-
-    # check if move to crate is possible
-    if feature_old.max() == 0:
-        return False
-
-    idx = np.where(feature_old == 1)[0][0]
-
-    return ACTIONS[idx] == self_action
-
 
 def placed_useless_bomb(field: np.ndarray, agent_pos: Tuple[int, int], self_action: str, bomb_fields: List[Tuple[int, int]],
                         enemies_pos: List[Tuple[int, int]], crates: List[Tuple[int, int]]) -> bool:

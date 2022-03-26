@@ -1,4 +1,3 @@
-from agent_code.task1_double_q.agent_settings import *
 from agent_code.task1_double_q.game_info import *
 
 
@@ -25,7 +24,7 @@ def state_to_features(game_state: dict) -> Union[Tuple[None, None], Tuple[np.nda
     bombs = game_state["bombs"]
     explosion_map = game_state["explosion_map"]
     explosions = [(x, y) for x, y in np.ndindex(explosion_map.shape) if (explosion_map[x, y] != 0)]
-    blast_radius = get_blast_radius(field, bombs)
+    blast_radius, bombs_pos = get_blast_radius(field, bombs)
     bomb_fields = explosions + blast_radius
 
     enemies_pos = [enemy[3] for enemy in game_state["others"]]
@@ -42,7 +41,7 @@ def state_to_features(game_state: dict) -> Union[Tuple[None, None], Tuple[np.nda
         feat_3(field=field, bomb_fields=bomb_fields, bomb_action_possible=bomb_action_possible, agent_pos=agent_pos,
                enemies_pos=enemies_pos, safe_fields=safe_fields, escape_possible=escape_possible),
         feat_4(field=field, free_space=free_space, bomb_fields=bomb_fields, agent_pos=agent_pos, safe_fields=safe_fields),
-        feat_5(field_max_x=field.shape[0], field_max_y=field.shape[1], free_space=free_space, bomb_fields=bomb_fields, agent_pos=agent_pos),
+        # feat_5(field_max_x=field.shape[0], field_max_y=field.shape[1], free_space=free_space, bomb_fields=bomb_fields, agent_pos=agent_pos),
         feat_6(field=field, bomb_fields=bomb_fields, agent_pos=agent_pos),
         feat_7(field=field, bomb_action_possible=bomb_action_possible, agent_pos=agent_pos, escape_possible=escape_possible),
         feat_8(free_space=free_space, bomb_action_possible=bomb_action_possible, agent_pos=agent_pos, crates=crates),
@@ -52,7 +51,7 @@ def state_to_features(game_state: dict) -> Union[Tuple[None, None], Tuple[np.nda
         feat_11(free_space=free_space, agent_pos=agent_pos, bomb_action_possible=bomb_action_possible, enemies_pos=enemies_pos),
         feat_12(field, agent_pos, bomb_action_possible, explosions=explosions, blast_radius=blast_radius, enemies_pos=enemies_pos),
         feat_13(field=field, free_space=free_space, agent_pos=agent_pos, explosions=explosions, blast_radius=blast_radius,
-                enemies_nearby=enemies_nearby)
+                enemies_nearby=enemies_nearby, bombs_pos=bombs_pos)
     ))
 
     printable_field = ""
@@ -369,7 +368,7 @@ def feat_12(field: np.ndarray, agent_pos: Tuple[int, int], bomb_action_possible:
 
 
 def feat_13(field: np.ndarray, free_space: np.ndarray, agent_pos: Tuple[int, int], explosions: List[Tuple[int, int]], blast_radius: List[Tuple[int, int]],
-            enemies_nearby: List[Tuple[int, int]]) -> np.ndarray:
+            enemies_nearby: List[Tuple[int, int]], bombs_pos: List[Tuple[int, int]]) -> np.ndarray:
     """
     Agent moves into dangerous position (possibility of death)
     """
@@ -379,9 +378,13 @@ def feat_13(field: np.ndarray, free_space: np.ndarray, agent_pos: Tuple[int, int
     for idx, action in enumerate(ACTIONS):
         new_x, new_y = get_new_position(action, agent_pos)
 
-        # if field[new_x, new_y] == -1 or field[new_x, new_y] == 1:  # agent won't die moving into wall or crate
-        #     feature[idx] = 1
-        #     continue
+        if field[new_x, new_y] == -1 or field[new_x, new_y] == 1:  # agent won't die moving into wall or crate
+            feature[idx] = 1
+            continue
+
+        if (new_x, new_y) in explosions or (new_x, new_y) in bombs_pos:
+            feature[idx] = 1
+            continue
 
         if agent_pos in blast_radius:
             if action == "WAIT":

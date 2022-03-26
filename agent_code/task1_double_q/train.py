@@ -37,7 +37,7 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
     bombs = old_game_state["bombs"]
     explosion_map = old_game_state["explosion_map"]
     explosions = [(x, y) for x, y in np.ndindex(explosion_map.shape) if (explosion_map[x, y] != 0)]
-    blast_radius = get_blast_radius(field, bombs)
+    blast_radius, bombs_pos = get_blast_radius(field, bombs)
     bomb_fields = explosions + blast_radius
 
     enemies_pos = [enemy[3] for enemy in old_game_state["others"]]
@@ -84,8 +84,8 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
             custom_events.append(STAYED_IN_BLAST_RADIUS_4)
 
     # Feature 5
-    feat_5_old = feat_5(field_max_x=field.shape[0], field_max_y=field.shape[1], free_space=free_space,
-                        bomb_fields=bomb_fields, agent_pos=agent_pos)
+    # feat_5_old = feat_5(field_max_x=field.shape[0], field_max_y=field.shape[1], free_space=free_space, bomb_fields=bomb_fields, agent_pos=agent_pos)
+    feat_5_old = np.array([0])
     if 1 in feat_5_old:
         if check_for_multiple_ones(feat_5_old, self_action):
             custom_events.append(MOVED_AWAY_FROM_BOMB_FIELDS_5)
@@ -99,7 +99,6 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
             custom_events.append(STAYED_OUT_OF_BOMB_RADIUS_6)
         else:
             custom_events.append(MOVED_INTO_BOMB_RADIUS_6)
-
     # Feature 7
     feat_7_old = feat_7(field=field, bomb_action_possible=bomb_action_possible, agent_pos=agent_pos, escape_possible=escape_possible)
     if 1 in feat_7_old:
@@ -114,15 +113,23 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
         else:
             custom_events.append(MOVED_AWAY_FROM_CRATE_8)
 
+    if placed_useless_bomb(field=field, agent_pos=agent_pos, self_action=self_action, bomb_fields=bomb_fields,
+                           enemies_pos=enemies_pos, crates=crates):
+        custom_events.append(PLACED_USELESS_BOMB_7_9)
+
     # Feature 9
     feat_9_old = feat_9(bomb_action_possible=bomb_action_possible, pos=agent_pos, enemies_pos=enemies_pos, escape_possible=escape_possible)
     if 1 in feat_9_old:
         if self_action == "BOMB":
             custom_events.append(PLACED_BOMB_NEXT_TO_OPPONENT_9)
 
-    if placed_useless_bomb(field=field, agent_pos=agent_pos, self_action=self_action, bomb_fields=bomb_fields,
-                           enemies_pos=enemies_pos, crates=crates):
-        custom_events.append(PLACED_USELESS_BOMB_7_9)
+    # Feature 11
+    feat_11_old = feat_11(free_space=free_space, agent_pos=agent_pos, bomb_action_possible=bomb_action_possible, enemies_pos=enemies_pos)
+    if 1 in feat_11_old:
+        if check_for_single_one(feat_11_old, self_action):
+            custom_events.append(MOVED_TOWARDS_ENEMY_11)
+        else:
+            custom_events.append(MOVED_AWAY_FROM_ENEMY_11)
 
     # Feature 10
     feat_10_old = feat_10(free_space=free_space, agent_pos=agent_pos, bomb_action_possible=bomb_action_possible, enemies_nearby=enemies_nearby,
@@ -133,14 +140,6 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
         else:
             custom_events.append(MOVED_TOWARDS_DANGEROUS_ENEMY_10)
 
-    # # Feature 11
-    feat_11_old = feat_11(free_space=free_space, agent_pos=agent_pos, bomb_action_possible=bomb_action_possible, enemies_pos=enemies_pos)
-    if 1 in feat_11_old:
-        if check_for_single_one(feat_11_old, self_action):
-            custom_events.append(MOVED_TOWARDS_ENEMY_11)
-        else:
-            custom_events.append(MOVED_AWAY_FROM_ENEMY_11)
-
     # Feature 12
     feat_12_old = feat_12(field, agent_pos, bomb_action_possible, explosions=explosions, blast_radius=blast_radius, enemies_pos=enemies_pos)
     if 1 in feat_12_old:
@@ -150,7 +149,7 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
             custom_events.append(DID_NOT_KILL_ENEMY_IN_TRAP_12)
 
     feat_13_old = feat_13(field=field, free_space=free_space, agent_pos=agent_pos, explosions=explosions, blast_radius=blast_radius,
-                          enemies_nearby=enemies_nearby)
+                          enemies_nearby=enemies_nearby, bombs_pos=bombs_pos)
     if 1 in feat_13_old:
         if check_for_multiple_ones(feat_13_old, self_action):
             custom_events.append(MOVED_INTO_DANGEROUS_POSITION_13)
@@ -229,12 +228,13 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     self.weights2_stats[self.episode] = self.weights2
 
     last_transition = Transition(last_game_state, last_action, None, current_rewards)
-    # self.transitions.append(last_transition)
-    fake_q_values = np.zeros(self.weights1.shape)
+    fake_q_values = np.zeros(len(ACTIONS))
+
     self.logger.debug(beautify_output(last_transition.printable_field, last_transition.state_features, self.weights1, self.weights2, fake_q_values))
 
     with open(env.MODEL_NAME, "wb") as file:
         weights = np.concatenate((self.weights1, self.weights2))
+        self.logger.info("Storing weights", extra={"weights": weights})
         pickle.dump(weights, file)
 
     self.episode += 1
@@ -297,7 +297,7 @@ def placed_useless_bomb(field: np.ndarray, agent_pos: Tuple[int, int], self_acti
     if self_action != "BOMB":
         return False
 
-    blast_radius = get_blast_radius(field, [(agent_pos, 0)])
+    blast_radius, _ = get_blast_radius(field, [(agent_pos, 0)])
 
     if not is_escape_possible(field, bomb_fields, agent_pos, enemies_pos):
         return True

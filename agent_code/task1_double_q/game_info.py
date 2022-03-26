@@ -180,10 +180,12 @@ def look_for_targets(free_space, start, targets, distance_satisfied: int = 0) ->
         current = parent_dict[current]
 
 
-def get_blast_radius(field: np.array, bombs) -> List[Tuple[int, int]]:
+def get_blast_radius(field: np.array, bombs) -> Tuple[List[Tuple[int, int]],List[Tuple[int, int]]]:
+    bombs_pos = []
     radius = []
     for pos, countdown in bombs:
         x, y = pos
+        bombs_pos.append((x,y))
         radius.append((x, y))
         for i in range(1, BOMB_POWER + 1):
             if field[x + i, y] == -1:
@@ -202,7 +204,7 @@ def get_blast_radius(field: np.array, bombs) -> List[Tuple[int, int]]:
                 break
             radius.append((x, y - i))
 
-    return radius
+    return radius, bombs_pos
 
 
 def is_crate_nearby(field: np.array, pos: Tuple[int, int]) -> bool:
@@ -269,7 +271,7 @@ def wait_is_intelligent(pos: Tuple[int, int], bomb_fields: List[Tuple[int, int]]
 
 def is_escape_possible(field: np.ndarray, bomb_fields: List[Tuple[int, int]], pos: Tuple[int, int],
                        enemies_pos: List[Tuple[int, int]]) -> bool:
-    own_radius = get_blast_radius(field, [(pos, 0)])
+    own_radius, _ = get_blast_radius(field, [(pos, 0)])
     bomb_fields = bomb_fields + own_radius
 
     safe_fields = get_safe_fields(field, bomb_fields, enemies_pos)

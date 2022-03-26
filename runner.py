@@ -12,7 +12,6 @@ from typing import List, Tuple, Union
 import numpy as np
 from pythonjsonlogger import jsonlogger
 
-from agent_code.task1.rewards import REWARDS
 from main import main as play
 
 SEED = 42
@@ -44,7 +43,11 @@ def append_list_to_list(first: list, second: list) -> list:
     return result
 
 
-def get_rewards(n_samples: int) -> List[List[Tuple[str, int]]]:
+def get_rewards(agent_name: str, n_samples: int) -> List[List[Tuple[str, int]]]:
+    if agent_name == "task1":
+        from agent_code.task1.rewards import REWARDS
+    else:
+        from agent_code.task1_double_q.rewards import REWARDS
     all_rewards = []
     for i in range(n_samples):
         rewards = []
@@ -56,12 +59,17 @@ def get_rewards(n_samples: int) -> List[List[Tuple[str, int]]]:
     return all_rewards
 
 
-def get_biased_rewards(n_samples) -> List[List[Tuple[str, int]]]:
+def get_biased_rewards(agent_name: str, n_samples: int) -> List[List[Tuple[str, int]]]:
+    if agent_name == "task1":
+        from agent_code.task1.rewards import REWARDS
+    else:
+        from agent_code.task1_double_q.rewards import REWARDS
+
     all_rewards = []
     for i in range(n_samples):
         rewards = []
         for name, item in REWARDS.items():
-            deviation = [i for i in range(item[0] - 5, item[0] + 5)]
+            deviation = [i for i in range(item[0] - 10, item[0] + 10)]
             choice = np.random.choice(deviation)
             rewards.append((name, int(choice)))
         all_rewards.append(rewards)
@@ -133,12 +141,13 @@ def play_iteration(agents: str, n_rounds: int, scenario: str, match_name: str, s
 
 class Runner:
 
-    def __init__(self, scenario: str, agent: str, opponents: str, n_rounds: int, runner_id: str = None, seed: bool = False):
+    def __init__(self, scenario: str, agent: str, opponents: str, n_rounds_train: int, n_rounds: int, runner_id: str = None, seed: bool = False):
         self.logger = get_logger(__name__)
         self.scenario = scenario
         self.primary_agent = agent
         self.agents = agent + get_opponents(opponents)
         self.n_rounds = n_rounds
+        self.n_rounds_train = n_rounds_train
         self.seed =seed
         self.runner_id = runner_id if runner_id else unique_id()
         self.logger.info(f"Starting runner {self.runner_id} for {self.primary_agent}")
@@ -155,7 +164,6 @@ class Runner:
         for idx, rewards in enumerate(all_rewards):
             env.match_id = f"{self.runner_id}-{self.primary_agent}-{unique_id()}"
             env.model_name = f"{env.match_id}.pt"
-            env.n_rounds = self.n_rounds
             self._run(idx, env, rewards)
 
             all_matches[env.match_id] = dict(rewards)
@@ -165,14 +173,25 @@ class Runner:
                 json.dump(all_matches, file)
 
     def start_simple(self, env: EnvVariables):
+        if self.primary_agent == "task1":
+            from agent_code.task1.rewards import REWARDS
+        else:
+            from agent_code.task1_double_q.rewards import REWARDS
+
         env.match_id = f"{self.primary_agent}-eps"
         env.model_name = f"{env.match_id}.pt"
         env.n_rounds = self.n_rounds
         self._run(0, env, None)
 
-        if self.primary_agent != "task1_double_q":
-            with open(f"agent_code/{self.primary_agent}/models/{env.model_name}", "rb") as file:
-                model = pickle.load(file)
+        with open(f"agent_code/{self.primary_agent}/models/{env.model_name}", "rb") as file:
+            model = pickle.load(file)
+            if self.primary_agent == "task1_double_q":
+                from agent_code.task1_double_q.agent_settings import NUMBER_OF_FEATURES
+                weights1 = model[:NUMBER_OF_FEATURES]
+                weights2 = model[NUMBER_OF_FEATURES:]
+                print(f"Weights 1: {[f'{round(weight, 2)} ({idx})' for idx, weight in enumerate(weights1)]}")
+                print(f"Weights 2: {[f'{round(weight, 2)} ({idx})' for idx, weight in enumerate(weights2)]}")
+            else:
                 print(f"Model {[f'{round(weight, 2)} ({idx})' for idx, weight in enumerate(model)]}")
 
         with open(f'agent_code/{self.primary_agent}/logs/{self.primary_agent}_train.log', 'r') as file:
@@ -180,7 +199,7 @@ class Runner:
 
         reward_occ = {}
         for idx, reward in enumerate(REWARDS.keys()):
-            reward_occ[idx] = [reward, data.count(reward)]
+            reward_occ[idx] = [reward, int(data.count(reward)/2)]
 
         for idx in range(0, len(reward_occ.keys()), 2):
             output = f"{reward_occ[idx][0]:40} - {reward_occ[idx][1]:5} |"
@@ -189,6 +208,7 @@ class Runner:
             print(output)
 
     def _run(self, idx: int, env: EnvVariables, rewards: Union[List[Tuple[str, int]], None]):
+        env.n_rounds = self.n_rounds_train
         self.logger.info(f"Executing training iteration {idx}", extra={"match_name": env.match_id, "agents": self.agents,
                                                                        "n_rounds": env.n_rounds, "scenario": self.scenario,
                                                                        "alpha": env.alpha, "gamma": env.gamma, "eps": env.eps,
@@ -200,18 +220,23 @@ class Runner:
 
         with open(stats_file, "rb") as f:
             stats = json.load(f)
-        self.logger.info(f"Statistics for iteration {idx} ({env.match_id})", extra=stats["by_agent"][self.primary_agent])
+            self.logger.info(f"Statistics for training iteration {idx} ({env.match_id})", extra=stats["by_agent"][self.primary_agent])
 
         if rewards:
             stats_file = f"results/{env.match_id}.json"
+            prev_policy = env.policy
             env.policy = "greedy"
-            env.n_rounds = 50
+            env.n_rounds = self.n_rounds
             env.set(rewards)
             self.logger.info(f"Executing greedy iteration {idx}", extra={"match_name": env.match_id, "agents": self.agents,
                                                                          "n_rounds": env.n_rounds, "scenario": self.scenario,
                                                                          "alpha": env.alpha, "gamma": env.gamma, "eps": env.eps,
                                                                          "policy": env.policy})
             play_iteration(agents=self.agents, scenario=self.scenario, n_rounds=env.n_rounds, match_name=env.match_id, stats_file=stats_file, train=False)
+            env.policy = prev_policy
+            with open(stats_file, "rb") as f:
+                stats = json.load(f)
+                self.logger.info(f"Statistics for greedy iteration {idx} ({env.match_id})", extra=stats["by_agent"][self.primary_agent])
 
         if not rewards and os.path.isfile(f'dump/models/{env.model_name}'):
             shutil.copy2(f'dump/models/{env.model_name}', f'agent_code/{self.primary_agent}/models/{env.model_name}')
@@ -222,7 +247,8 @@ class Runner:
 #
 def main(argv=None):
     parser = ArgumentParser()
-    parser.add_argument("--rounds", type=int, default=100)
+    parser.add_argument("--rounds-train", type=int, default=100)
+    parser.add_argument("--rounds", type=int, default=50)
     parser.add_argument("--agent", type=str, default="task1")
     parser.add_argument("--o", type=str, default="rule")
     parser.add_argument("--s", type=str, default="classic")
@@ -237,11 +263,11 @@ def main(argv=None):
 
     all_rewards = None
     if not args.simple:
-        # all_rewards = get_rewards(args.samples)
-        all_rewards = get_biased_rewards(args.samples)
+        # all_rewards = get_rewards(args.agent, args.samples)
+        all_rewards = get_biased_rewards(args.agent, args.samples)
 
     env = EnvVariables(policy="epsilon_greedy", gamma=args.gamma, eps=args.eps, alpha=args.alpha)
-    sr = Runner(scenario=args.s, n_rounds=args.rounds, agent=args.agent, opponents=args.o, seed=args.seed)
+    sr = Runner(scenario=args.s, n_rounds_train=args.rounds_train, n_rounds=args.rounds, agent=args.agent, opponents=args.o, seed=args.seed)
 
     if args.simple:
         sr.start_simple(env)

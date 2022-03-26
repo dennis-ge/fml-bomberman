@@ -11,12 +11,12 @@ from agent_code.task1_double_q.rewards import *
 AGENT_NAME = "task1_double_q"
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 TIMESTAMP = datetime.now(timezone.utc).strftime("%m-%dT%H:%M")
-PROD_MODEL_NAME = f"./models/{AGENT_NAME}-eps-v2.pt"
-SET_REWARDS_OVER_ENV = True  # False for production
+PROD_MODEL_NAME = f"./models/{AGENT_NAME}-eps.pt"
+PRODUCTION = False  # False for production
 #
 # ML/Hyperparameter
 #
-NUMBER_OF_FEATURES = 14
+NUMBER_OF_FEATURES = 13
 
 GREEDY_POLICY_NAME = 'greedy'
 EPSILON_GREEDY_POLICY_NAME = 'epsilon_greedy'
@@ -74,7 +74,7 @@ class EnvSettings:
             print("EXPERIENCE_REPLAY_ACTIVATED: True")
 
         self.REWARDS = {}
-        if SET_REWARDS_OVER_ENV:
+        if not PRODUCTION:
             for name, item in REWARDS.items():
                 self.REWARDS[name] = int(os.environ.get(name, item[0]))
         else:
