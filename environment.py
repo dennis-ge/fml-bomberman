@@ -12,7 +12,7 @@ import numpy as np
 
 import events as e
 import settings as s
-from agents import Agent, SequentialAgentBackend
+from agents import Agent, SequentialAgentBackend, ProcessAgentBackend
 from fallbacks import pygame
 from items import Coin, Explosion, Bomb
 
@@ -109,10 +109,10 @@ class GenericWorld:
     def add_agent(self, agent_dir, name, train=False):
         assert len(self.agents) < s.MAX_AGENTS
 
-        # if self.args.single_process:
-        backend = SequentialAgentBackend(train, name, agent_dir)
-        # else:
-        # backend = ProcessAgentBackend(train, name, agent_dir)
+        if self.args.single_process:
+            backend = SequentialAgentBackend(train, name, agent_dir)
+        else:
+            backend = ProcessAgentBackend(train, name, agent_dir)
         backend.start()
 
         color = self.colors.pop()
@@ -260,7 +260,7 @@ class GenericWorld:
                             explosion.owner.trophies.append(pygame.transform.smoothscale(a.avatar, (15, 15)))
 
                         if (a.name == "task1" or a.name == "task1_double_q") and not a.train and len(self.active_agents) > 0 and len(self.agents) > 0:
-                            self.relevant_agent_died = True
+                            # self.relevant_agent_died = True
                             pass
 
         # Remove hit agents

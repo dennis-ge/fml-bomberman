@@ -108,7 +108,7 @@ def main(argv=None):
     play_parser.add_argument("--train", default=0, type=int, choices=[0, 1, 2, 3, 4],
                              help="First … agents should be set to training mode")
     play_parser.add_argument("--continue-without-training", default=False, action="store_true")
-    # play_parser.add_argument("--single-process", default=False, action="store_true")
+    play_parser.add_argument("--single-process", default=True, action="store_true")
 
     play_parser.add_argument("--scenario", default="classic", choices=s.SCENARIOS)
 

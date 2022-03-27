@@ -69,9 +69,7 @@ class EnvSettings:
         self.EPSILON_START = float(os.environ.get("EPS_START", 1))
         self.EPSILON_END = float(os.environ.get("EPS_MIN", 0.05))
         self.EPSILON_DECAY = float(os.environ.get("EPS_DECAY", 0.9994))
-        self.EXPERIENCE_REPLAY_ACTIVATED = (os.environ.get("EXPERIENCE_REPLAY_ACTIVATED", False))
-        if self.EXPERIENCE_REPLAY_ACTIVATED:
-            print("EXPERIENCE_REPLAY_ACTIVATED: True")
+        self.EXPERIENCE_REPLAY_ACTIVATED = (os.environ.get("EXPERIENCE_REPLAY_ACTIVATED", True))
 
         self.REWARDS = {}
         if not PRODUCTION:

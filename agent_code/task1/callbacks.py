@@ -61,6 +61,7 @@ def act(self, game_state: dict) -> str:
     features, printable_field = state_to_features(game_state)
     _, best_actions, q_values = max_q(features, self.model)
 
+
     self.logger.debug(beautify_output(printable_field, features, self.model, q_values))
 
     if env.POLICY_NAME == DECAY_GREEDY_POLICY_NAME:

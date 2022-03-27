@@ -124,7 +124,7 @@ class EnvVariables:
                 os.environ[item[0]] = f"{item[1]}"
 
 
-def play_iteration(agents: str, n_rounds: int, scenario: str, match_name: str, stats_file: str, train: bool = True, seed: bool = False):
+def play_iteration(agents: str, n_rounds: int, scenario: str, match_name: str, stats_file: str, train: bool = True, seed: bool = False, multithread: bool = True):
     game_args = ["play", "--no-gui"]
     game_args.extend(["--agents", *agents.split(" ")])
     game_args.extend(["--n-rounds", str(n_rounds)])
@@ -135,6 +135,8 @@ def play_iteration(agents: str, n_rounds: int, scenario: str, match_name: str, s
         game_args.extend(["--train", str(1)])
     if seed:
         game_args.extend(["--seed", str(42)])
+    if multithread:
+        game_args.extend(["--single-process"])
 
     play(game_args)
 
@@ -208,13 +210,13 @@ class Runner:
             print(output)
 
     def _run(self, idx: int, env: EnvVariables, rewards: Union[List[Tuple[str, int]], None]):
+        self.logger.info(f"Rewards for iteration {idx}", extra={"rewards": rewards})
         env.n_rounds = self.n_rounds_train
         self.logger.info(f"Executing training iteration {idx}", extra={"match_name": env.match_id, "agents": self.agents,
                                                                        "n_rounds": env.n_rounds, "scenario": self.scenario,
                                                                        "alpha": env.alpha, "gamma": env.gamma, "eps": env.eps,
                                                                        "policy": env.policy})
         stats_file = f"results/{env.match_id}_train.json"
-
         env.set(rewards)
         play_iteration(agents=self.agents, scenario=self.scenario, n_rounds=env.n_rounds, match_name=env.match_id, stats_file=stats_file, seed=self.seed)
 
@@ -254,10 +256,11 @@ def main(argv=None):
     parser.add_argument("--s", type=str, default="classic")
     parser.add_argument("--simple", type=bool, default=False)
     parser.add_argument("--samples", type=int, default=10)
-    parser.add_argument("--seed", type=bool, default=False)
+    parser.add_argument("--seed", default=False, action="store_false")
     parser.add_argument("--eps", type=float, default=0.15)
     parser.add_argument("--gamma", type=float, default=0.80)
     parser.add_argument("--alpha", type=float, default=0.05)
+    parser.add_argument("--policy", type=str, default="epsilon_greedy")
 
     args = parser.parse_args(argv)
 
@@ -266,7 +269,7 @@ def main(argv=None):
         # all_rewards = get_rewards(args.agent, args.samples)
         all_rewards = get_biased_rewards(args.agent, args.samples)
 
-    env = EnvVariables(policy="epsilon_greedy", gamma=args.gamma, eps=args.eps, alpha=args.alpha)
+    env = EnvVariables(policy=args.policy, gamma=args.gamma, eps=args.eps, alpha=args.alpha)
     sr = Runner(scenario=args.s, n_rounds_train=args.rounds_train, n_rounds=args.rounds, agent=args.agent, opponents=args.o, seed=args.seed)
 
     if args.simple:

@@ -77,11 +77,14 @@ def max_q_single(features: np.array, weights: np.array) -> Tuple[float, List[int
     return q_max, a_max
 
 
-def td_update(weights1: np.array, weights2: np.array, t: Transition) -> Tuple[np.array, np.array]:
+def td_update(weights1: np.array, weights2: np.array, t: Transition, sample_size: int = 0) -> Tuple[np.array, np.array]:
     """
     Update the model based on the TD error.
     :return:
     """
+    if sample_size == 0:
+        sample_size = env.LEARNING_RATE
+
     batch_updated_weights1, batch_updated_weights2 = np.zeros(len(weights1)), np.zeros(len(weights2))
 
     state_action = t.state_features[ACTIONS.index(t.action), :]
@@ -91,13 +94,13 @@ def td_update(weights1: np.array, weights2: np.array, t: Transition) -> Tuple[np
             selected_features = t.next_state_features[np.random.choice(best_actions), :]
             max_q_next, _ = max_q_single(selected_features, weights2)
             td_error = t.reward + env.DISCOUNT_FACTOR * max_q_next - np.dot(state_action, weights1)
-            batch_updated_weights1 = batch_updated_weights1 + env.LEARNING_RATE * td_error * state_action
+            batch_updated_weights1 = batch_updated_weights1 + (env.LEARNING_RATE/sample_size) * td_error * state_action
         else:
             _, best_actions = max_q_single(t.next_state_features, weights2)
             selected_features = t.next_state_features[np.random.choice(best_actions), :]
             max_q_next, _ = max_q_single(selected_features, weights1)
             td_error = t.reward + env.DISCOUNT_FACTOR * max_q_next - np.dot(state_action, weights2)
-            batch_updated_weights2 = batch_updated_weights2 + env.LEARNING_RATE * td_error * state_action
+            batch_updated_weights2 = batch_updated_weights2 + (env.LEARNING_RATE/sample_size) * td_error * state_action
 
     updated_weights1 = weights1 + batch_updated_weights1
     updated_weights2 = weights2 + batch_updated_weights2
