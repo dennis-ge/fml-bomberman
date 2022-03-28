@@ -1,12 +1,11 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="double Coin Heaven without Opponents" type="PythonConfigurationType" factoryName="Python">
+  <configuration default="false" name="double Classic Train with Opponents" type="PythonConfigurationType" factoryName="Python">
     <module name="fml-bomberman-uni-hd" />
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
     <envs>
       <env name="PYTHONUNBUFFERED" value="1" />
-      <env name="POLICY" value="greedy" />
-      <env name="PRINT_FIELD" value="True" />
+      <env name="POLICY" value="epsilon_greedy" />
     </envs>
     <option name="SDK_HOME" value="" />
     <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
@@ -14,7 +13,7 @@
     <option name="ADD_CONTENT_ROOTS" value="true" />
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main.py" />
-    <option name="PARAMETERS" value="play --scenario coin-heaven --agents fml_double --n-rounds 100 --train 1" />
+    <option name="PARAMETERS" value="play --agents fml_double  rule_based_agent rule_based_agent rule_based_agent --train 1 --n-rounds 60 --no-gui" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />
