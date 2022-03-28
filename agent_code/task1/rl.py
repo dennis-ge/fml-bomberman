@@ -64,18 +64,22 @@ def max_q(features: np.array, model: np.array) -> Tuple[float, List[int], np.nda
     return q_max, a_max, q_values
 
 
-def td_update(model: np.array, t: Transition) -> np.array:
+def td_update(model: np.array, t: Transition, sample_size: int = 0) -> np.array:
     """
     Update the model based on the TD error.
     :return:
     """
+
+    if sample_size == 0:
+        sample_size = env.LEARNING_RATE
+
     updated_weights = np.zeros(len(model))
     q_max, _, _ = max_q(t.next_state_features, model)
 
     state_action = t.state_features[ACTIONS.index(t.action), :]
     for _ in range(len(model)):
         td_error = t.reward + env.DISCOUNT_FACTOR * q_max - np.dot(state_action, model)
-        updated_weights = updated_weights + env.LEARNING_RATE * td_error * state_action
+        updated_weights = updated_weights + (env.LEARNING_RATE/sample_size) * td_error * state_action
 
     updated_model = model + updated_weights
     return updated_model

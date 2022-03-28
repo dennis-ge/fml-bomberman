@@ -1,5 +1,4 @@
 import pickle
-import random
 from collections import deque
 
 import agent_code.task1_double_q.rl as q
@@ -22,7 +21,7 @@ def setup_training(self):
     self.weights1_stats = np.zeros((env.NUMBER_OF_ROUNDS, NUMBER_OF_FEATURES))
     self.weights2_stats = np.zeros((env.NUMBER_OF_ROUNDS, NUMBER_OF_FEATURES))
     self.batch_size = 50
-    self.batch_increment_sie = 20
+    self.batch_increment_size = 20
 
 
 def get_custom_events(self, old_game_state: dict, self_action: str, new_game_state: dict or None) -> List[str]:
@@ -224,15 +223,20 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     self.logger.debug(beautify_output(last_transition.printable_field, last_transition.state_features, self.weights1, self.weights2, fake_q_values))
     self.episode += 1
 
+    rewards = [t.reward for t in self.transitions]
+    sum_rewards = np.sum(np.abs(rewards))
+    reward_p = [np.abs(r) / sum_rewards for r in rewards]
+
     if env.EXPERIENCE_REPLAY_ACTIVATED:
         if (self.episode % 5) == 0:  # every 5 rounds
             sample_size = self.batch_size if self.batch_size <= len(self.transitions) else len(self.transitions)
-            current_batch = random.sample(self.transitions, sample_size)
+            # current_batch = np.random.choice(self.transitions, sample_size, p=reward_p)
+            # current_batch = np.random.choice(self.transitions, sample_size)
+            current_batch = self.transitions.copy()
             self.logger.info(f"Transition Count: {len(self.transitions)}, Batch Count {sample_size}")
-            self.batch_size += self.batch_increment_sie
-
-            if (self.episode % 1) == 0:
-                self.transitions = []
+            self.batch_size += self.batch_increment_size
+            np.random.shuffle(current_batch)
+            self.transitions = []
 
             weights1_batch = np.zeros(len(self.weights1))
             weights2_batch = np.zeros(len(self.weights2))
@@ -240,8 +244,6 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
                 weights1_batch, weights2_batch = q.td_update(weights1_batch, weights2_batch, batch_transition, sample_size)
             self.weights1 = self.weights1 + weights1_batch
             self.weights2 = self.weights2 + weights2_batch
-
-            self.transitions = []
 
     with open(env.MODEL_NAME, "wb") as file:
         weights = np.concatenate((self.weights1, self.weights2))

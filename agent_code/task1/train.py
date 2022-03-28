@@ -19,7 +19,8 @@ def setup_training(self):
     self.episode = 0
     self.rewards = np.zeros(env.NUMBER_OF_ROUNDS)
     self.models = np.zeros((env.NUMBER_OF_ROUNDS, NUMBER_OF_FEATURES))
-
+    self.batch_size = 50
+    self.batch_increment_size = 20
 
 def get_custom_events(self, old_game_state: dict, self_action: str, new_game_state: dict or None) -> List[str]:
     custom_events = []
@@ -186,19 +187,7 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     transition = Transition(old_game_state, self_action, new_game_state, current_rewards)
     self.transitions.append(transition)
 
-    if env.EXPERIENCE_REPLAY_ACTIVATED:
-        if len(self.transitions) == EXPERIENCE_REPLAY_K:
-            current_transitions = self.transitions.copy()
-            np.random.shuffle(current_transitions)
-
-            for _ in range(0, int(EXPERIENCE_REPLAY_K / EXPERIENCE_REPLAY_BATCH_SIZE)):
-                current_batch = current_transitions[:EXPERIENCE_REPLAY_BATCH_SIZE]
-                current_transitions = current_transitions[EXPERIENCE_REPLAY_BATCH_SIZE:]
-
-                for batch_transition in current_batch:
-                    self.model = q.td_update(self.model, batch_transition)
-            self.transitions = []
-    else:
+    if not env.EXPERIENCE_REPLAY_ACTIVATED:
         self.model = q.td_update(self.model, transition)
 
     # self.logger.debug(f'Encountered game event(s) {", ".join(map(repr, events))} in step {new_game_state["step"]}')
@@ -227,14 +216,33 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     self.models[self.episode] = self.model
 
     last_transition = Transition(last_game_state, last_action, None, current_rewards)
-    # self.transitions.append(last_transition)
-    fake_q_values = np.zeros(self.model.shape)
-    self.logger.debug(beautify_output(last_transition.printable_field, last_transition.state_features, self.model, fake_q_values))
+    fake_q_values = np.zeros(len(ACTIONS))
+
+    self.logger.debug(beautify_output(last_transition.printable_field, last_transition.state_features, self.model,fake_q_values))
+    self.episode += 1
+
+    rewards = [t.reward for t in self.transitions]
+    sum_rewards = np.sum(np.abs(rewards))
+    reward_p = [np.abs(r) / sum_rewards for r in rewards]
+
+    if env.EXPERIENCE_REPLAY_ACTIVATED:
+        if (self.episode % 5) == 0:  # every 5 rounds
+            sample_size = self.batch_size if self.batch_size <= len(self.transitions) else len(self.transitions)
+            # current_batch = np.random.choice(self.transitions, sample_size, p=reward_p)
+            # current_batch = np.random.choice(self.transitions, sample_size)
+            current_batch = self.transitions.copy()
+            self.logger.info(f"Transition Count: {len(self.transitions)}, Batch Count {sample_size}")
+            self.batch_size += self.batch_increment_size
+            np.random.shuffle(current_batch)
+            self.transitions = []
+
+            model_batch = np.zeros(len(self.model))
+            for batch_transition in current_batch:
+                model_batch = q.td_update(model_batch, batch_transition, sample_size)
+            self.model = self.model + model_batch
 
     with open(env.MODEL_NAME, "wb") as file:
         pickle.dump(self.model, file)
-
-    self.episode += 1
 
     if self.episode == env.NUMBER_OF_ROUNDS:
         with open(env.REWARDS_NAME, 'wb') as file:
@@ -278,7 +286,6 @@ def check_for_multiple_ones(feature_vector: np.ndarray, self_action: str) -> boo
             return True
 
     return False
-
 
 
 def placed_useless_bomb(field: np.ndarray, agent_pos: Tuple[int, int], self_action: str, bomb_fields: List[Tuple[int, int]],

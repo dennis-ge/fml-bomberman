@@ -31,16 +31,15 @@ def setup(self):
     if self.train or not os.path.isfile(env.MODEL_NAME):
         self.logger.info(f"Setting up model from scratch.")
         weights = np.random.rand(NUMBER_OF_FEATURES)
-        guess = [1, 0.5, 2, 3, 3.5, 6, 3.8, 0.6, 5, 1.5, 0.5, 4, -5]
-        self.weights1 = guess  # weights / weights.sum()
-        self.weights2 = guess  # weights / weights.sum()
+        guess = [1, 9, 20, 30, 32, 40, 35, 7, 40, 10, 3, 42, -100]
+        self.weights1 = guess
+        self.weights2 = guess
+        # self.weights1 = weights / weights.sum()
+        # self.weights2 = weights / weights.sum()
     else:
         self.logger.info(f"Loading model from saved state: {env.MODEL_NAME}")
         with open(env.MODEL_NAME, "rb") as file:
             weights = pickle.load(file)
-            guess = [1, 0.5, 2, 3, 3.5, 6, 3.8, 0.6, 5, 1.5, 0.5, 4, -5]
-            self.weights1 = guess#weights[:NUMBER_OF_FEATURES]
-            self.weights2 = guess#weights[NUMBER_OF_FEATURES:]
             self.weights1 = weights[:NUMBER_OF_FEATURES]
             self.weights2 = weights[NUMBER_OF_FEATURES:]
 

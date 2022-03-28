@@ -52,15 +52,9 @@ def act(self, game_state: dict) -> str:
 
     self.logger.debug(f"--- Choosing an action for step {game_state['step']} at position {game_state['self'][3]}")
 
-    # if self.train and np.random.random() < env.EPSILON:
-    #     rand_action = np.random.choice(ACTIONS, p=[.167, .167, .167, .167, .166, .166])
-    #     self.logger.debug(f"Chosen the following action purely at random: {rand_action}")
-    #     return rand_action
-
     # get best action based on q_values
     features, printable_field = state_to_features(game_state)
     _, best_actions, q_values = max_q(features, self.model)
-
 
     self.logger.debug(beautify_output(printable_field, features, self.model, q_values))
 

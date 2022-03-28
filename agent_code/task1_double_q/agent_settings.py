@@ -11,7 +11,7 @@ from agent_code.task1_double_q.rewards import *
 AGENT_NAME = "task1_double_q"
 ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
 TIMESTAMP = datetime.now(timezone.utc).strftime("%m-%dT%H:%M")
-PROD_MODEL_NAME = f"./models/{AGENT_NAME}-eps.pt"
+PROD_MODEL_NAME = f"./models/{AGENT_NAME}-eps-v8.pt"
 PRODUCTION = False  # False for production
 #
 # ML/Hyperparameter
@@ -26,7 +26,7 @@ TRANSITION_HISTORY_SIZE = 1000  # keep
 ENEMY_TRANSITION_HISTORY_SIZE = 20  # record enemy transitions with probability.
 
 EXPERIENCE_REPLAY_K = 300
-EXPERIENCE_REPLAY_BATCH_SIZE = 30
+EXPERIENCE_REPLAY_BATCH_SIZE = 10
 
 
 class EnvSettings:
@@ -69,7 +69,7 @@ class EnvSettings:
         self.EPSILON_START = float(os.environ.get("EPS_START", 1))
         self.EPSILON_END = float(os.environ.get("EPS_MIN", 0.05))
         self.EPSILON_DECAY = float(os.environ.get("EPS_DECAY", 0.9994))
-        self.EXPERIENCE_REPLAY_ACTIVATED = (os.environ.get("EXPERIENCE_REPLAY_ACTIVATED", True))
+        self.EXPERIENCE_REPLAY_ACTIVATED = os.environ.get("EXPERIENCE_REPLAY_ACTIVATED", True)
 
         self.REWARDS = {}
         if not PRODUCTION:
