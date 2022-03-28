@@ -284,8 +284,8 @@ class GenericWorld:
         self.round_statistics[self.round_id] = {
             "steps": self.step,
             **{key: sum(a.statistics[key] for a in self.agents) for key in ["coins", "kills", "suicides"]},
-            **{f"{key}_train": sum(a.statistics[key] for a in self.agents if a.name == "task1") for key in ["coins", "kills", "suicides"]},
-            **{f"{key}_train": sum(a.statistics[key] for a in self.agents if a.name == "task1_double_q") for key in ["coins", "kills", "suicides"]}
+            **{f"{key}_fml": sum(a.statistics[key] for a in self.agents if a.name == "fml") for key in ["coins", "kills", "suicides"]},
+            **{f"{key}_fml_double": sum(a.statistics[key] for a in self.agents if a.name == "fml_double") for key in ["coins", "kills", "suicides"]}
         }
 
     def time_to_stop(self):

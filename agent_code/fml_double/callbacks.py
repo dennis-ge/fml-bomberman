@@ -31,7 +31,7 @@ def setup(self):
     if self.train or not os.path.isfile(env.MODEL_NAME):
         self.logger.info(f"Setting up model from scratch.")
         weights = np.random.rand(NUMBER_OF_FEATURES)
-        guess = [1, 9, 20, 30, 32, 40, 35, 7, 40, 10, 3, 42, -100]
+        guess = [1, 9, 20, 30, 32, 40, 35, 7, 40, 10, 3, 42, -5]
         self.weights1 = guess
         self.weights2 = guess
         # self.weights1 = weights / weights.sum()
@@ -53,26 +53,21 @@ def act(self, game_state: dict) -> str:
     :param game_state: The dictionary that describes everything on the board.
     :return: The action to take as a string.
     """
-    # start = timer()
+    start = timer()
 
     self.logger.debug(f"--- Choosing an action for step {game_state['step']} at position {game_state['self'][3]}")
-
-    # if self.train and np.random.random() < env.EPSILON:
-    #     rand_action = np.random.choice(ACTIONS, p=[.167, .167, .167, .167, .166, .166])
-    #     self.logger.debug(f"Chosen the following action purely at random: {rand_action}")
-    #     return rand_action
 
     # get best action based on q_values
     features, printable_field = state_to_features(game_state)
     _, best_actions, q_values = max_q(features, self.weights1, self.weights2)
 
-    # self.logger.debug(beautify_output(printable_field, features, self.weights1, self.weights2, q_values))
+    self.logger.debug(beautify_output(printable_field, features, self.weights1, self.weights2, q_values))
 
     if env.POLICY_NAME == DECAY_GREEDY_POLICY_NAME:
         action, self.prev_eps = self.policy(ACTIONS[np.random.choice(best_actions)], self.episode, self.prev_eps)
         return action
 
     action = self.policy(ACTIONS[np.random.choice(best_actions)])
-    # end = timer()
-    # self.logger.debug(f"Elapsed time for act: {round(end - start, 5)}s")
+    end = timer()
+    self.logger.debug(f"Elapsed time for act: {round(end - start, 5)}s")
     return action

@@ -80,7 +80,9 @@ def td_update(weights1: np.array, weights2: np.array, t: Transition, sample_size
     :return:
     """
     if sample_size == 0:
-        sample_size = env.LEARNING_RATE
+        alpha = env.LEARNING_RATE
+    else:
+        alpha = env.LEARNING_RATE / sample_size
 
     batch_updated_weights1, batch_updated_weights2 = np.zeros(len(weights1)), np.zeros(len(weights2))
 
@@ -91,13 +93,13 @@ def td_update(weights1: np.array, weights2: np.array, t: Transition, sample_size
             selected_features = t.next_state_features[np.random.choice(best_actions), :]
             max_q_next, _ = max_q_single(selected_features, weights2)
             td_error = t.reward + env.DISCOUNT_FACTOR * max_q_next - np.dot(state_action, weights1)
-            batch_updated_weights1 = batch_updated_weights1 + (env.LEARNING_RATE / sample_size) * td_error * state_action
+            batch_updated_weights1 = batch_updated_weights1 + alpha * td_error * state_action
         else:
             _, best_actions = max_q_single(t.next_state_features, weights2)
             selected_features = t.next_state_features[np.random.choice(best_actions), :]
             max_q_next, _ = max_q_single(selected_features, weights1)
             td_error = t.reward + env.DISCOUNT_FACTOR * max_q_next - np.dot(state_action, weights2)
-            batch_updated_weights2 = batch_updated_weights2 + (env.LEARNING_RATE / sample_size) * td_error * state_action
+            batch_updated_weights2 = batch_updated_weights2 + alpha * td_error * state_action
 
     updated_weights1 = weights1 + batch_updated_weights1
     updated_weights2 = weights2 + batch_updated_weights2

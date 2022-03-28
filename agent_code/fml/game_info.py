@@ -2,7 +2,7 @@ from typing import *
 
 import numpy as np
 
-from agent_code.fml_double.agent_settings import *
+from agent_code.fml.agent_settings import *
 from settings import *
 
 

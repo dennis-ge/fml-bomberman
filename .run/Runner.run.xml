@@ -13,7 +13,7 @@
     <option name="ADD_CONTENT_ROOTS" value="true" />
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/runner.py" />
-    <option name="PARAMETERS" value="--rounds 100 --simple=True" />
+    <option name="PARAMETERS" value="--rounds-train 500 --gamma 0.0  --agent fml --alpha 0.05 --eps 0.2 --s coin-heaven --o &quot;&quot; --simple=True" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />

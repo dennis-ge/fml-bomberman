@@ -12,12 +12,14 @@ def setup_training(self):
 
     This is called after `setup` in callbacks.py.
 
-    :param self: This object is passed to all callbacks and you can set arbitrary values.
+    :param self: This object is passed to all callbacks, and you can set arbitrary values.
     """
     self.transitions = []
-    self.opponent_transitions = dict(deque(maxlen=ENEMY_TRANSITION_HISTORY_SIZE))
+    self.opponent_transitions = dict(deque(maxlen=OPPONENT_TRANSITION_HISTORY_SIZE))
     self.episode = 0
     self.rewards = np.zeros(env.NUMBER_OF_ROUNDS)
+    self.rewards_acc = np.zeros(env.NUMBER_OF_ROUNDS)
+    self.all_coins_collected = np.zeros(env.NUMBER_OF_ROUNDS)
     self.weights1_stats = np.zeros((env.NUMBER_OF_ROUNDS, NUMBER_OF_FEATURES))
     self.weights2_stats = np.zeros((env.NUMBER_OF_ROUNDS, NUMBER_OF_FEATURES))
     self.batch_size = 50
@@ -51,7 +53,7 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
 
     for other_agent in old_game_state["others"]:
         if old_game_state["step"] == 1 and self.episode == 0:
-            self.opponent_transitions[other_agent[0]] = deque(maxlen=ENEMY_TRANSITION_HISTORY_SIZE)
+            self.opponent_transitions[other_agent[0]] = deque(maxlen=OPPONENT_TRANSITION_HISTORY_SIZE)
 
         self.opponent_transitions[other_agent[0]].append(EnemyTransition(other_agent[2], *other_agent[3]))
 
@@ -90,17 +92,17 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
     feat_5_old = np.array([0])
     if 1 in feat_5_old:
         if check_for_multiple_ones(feat_5_old, self_action):
-            custom_events.append(MOVED_AWAY_FROM_bomb_positions_5)
+            custom_events.append(MOVED_AWAY_FROM_BOMB_POSITIONS_5)
         elif self_action != "BOMB":
-            custom_events.append(MOVED_TOWARDS_bomb_positions_5)
+            custom_events.append(MOVED_TOWARDS_BOMB_POSITIONS_5)
 
     # Feature 6
     feat_6_old = feat_6(field=field, bomb_positions=bomb_positions, agent_pos=agent_pos)
     if 1 in feat_6_old:
         if check_for_multiple_ones(feat_6_old, self_action):
-            custom_events.append(STAYED_OUT_OF_BOMB_RADIUS_6)
+            custom_events.append(STAYED_OUT_OF_BOMB_POS_6)
         else:
-            custom_events.append(MOVED_INTO_BOMB_RADIUS_6)
+            custom_events.append(MOVED_INTO_BOMB_POS_6)
     # Feature 7
     feat_7_old = feat_7(field=field, bomb_action_possible=bomb_action_possible, agent_pos=agent_pos, escape_possible=escape_possible)
     if 1 in feat_7_old:
@@ -129,34 +131,34 @@ def get_custom_events(self, old_game_state: dict, self_action: str, new_game_sta
     feat_11_old = feat_11(free_space=free_space, agent_pos=agent_pos, bomb_action_possible=bomb_action_possible, opponents_pos=opponents_pos)
     if 1 in feat_11_old:
         if check_for_single_one(feat_11_old, self_action):
-            custom_events.append(MOVED_TOWARDS_ENEMY_11)
+            custom_events.append(MOVED_TOWARDS_OPPONENT_11)
         else:
-            custom_events.append(MOVED_AWAY_FROM_ENEMY_11)
+            custom_events.append(MOVED_AWAY_FROM_OPPONENT_11)
 
     # Feature 10
     feat_10_old = feat_10(free_space=free_space, agent_pos=agent_pos, bomb_action_possible=bomb_action_possible, opponents_nearby=opponents_nearby,
                           bomb_positions=bomb_positions)
     if 1 in feat_10_old:
         if check_for_multiple_ones(feat_10_old, self_action):
-            custom_events.append(MOVED_AWAY_FROM_DANGEROUS_ENEMY_10)
+            custom_events.append(MOVED_AWAY_FROM_DANG_OPPONENT_10)
         else:
-            custom_events.append(MOVED_TOWARDS_DANGEROUS_ENEMY_10)
+            custom_events.append(MOVED_TOWARDS_DANG_OPPONENT_10)
 
     # Feature 12
     feat_12_old = feat_12(field, agent_pos, bomb_action_possible, explosions=explosions, blast_radius=blast_radius, opponents_pos=opponents_pos)
     if 1 in feat_12_old:
         if check_for_multiple_ones(feat_12_old, self_action):
-            custom_events.append(KILLED_ENEMY_IN_TRAP_12)
+            custom_events.append(KILLED_OPPONENT_IN_TRAP_12)
         else:
-            custom_events.append(DID_NOT_KILL_ENEMY_IN_TRAP_12)
+            custom_events.append(DID_NOT_KILL_OPPONENT_IN_TRAP_12)
 
     feat_13_old = feat_13(field=field, free_space=free_space, agent_pos=agent_pos, explosions=explosions, blast_radius=blast_radius,
                           opponents_nearby=opponents_nearby, bombs_pos=bombs_pos)
     if 1 in feat_13_old:
         if check_for_multiple_ones(feat_13_old, self_action):
-            custom_events.append(MOVED_INTO_DANGEROUS_POSITION_13)
+            custom_events.append(MOVED_INTO_DANG_POS_13)
         else:
-            custom_events.append(DID_NOT_MOVE_INTO_DANGEROUS_POSITION_13)
+            custom_events.append(DID_NOT_MOVE_INTO_DANG_POS_13)
 
     return custom_events
 
@@ -185,6 +187,10 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     events.extend(get_custom_events(self, old_game_state, self_action, new_game_state))
     current_rewards = reward_from_events(self, events)
     self.rewards[self.episode] += current_rewards
+    self.rewards_acc[self.episode] += current_rewards
+    if old_game_state["step"] == 1 and self.episode > 0:
+        self.rewards_acc[self.episode] += self.rewards_acc[self.episode-1]
+
     transition = Transition(old_game_state, self_action, new_game_state, current_rewards)
     self.transitions.append(transition)
 
@@ -214,6 +220,8 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     self.logger.debug(f'Encountered event(s) {", ".join(map(repr, events))} in final step (Episode {self.episode})')
     current_rewards = reward_from_events(self, events)
     self.rewards[self.episode] += current_rewards
+    self.rewards_acc[self.episode] += current_rewards
+    self.all_coins_collected[self.episode] = last_game_state["step"]
     self.weights1_stats[self.episode] = self.weights1
     self.weights2_stats[self.episode] = self.weights2
 
@@ -228,11 +236,9 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     reward_p = [np.abs(r) / sum_rewards for r in rewards]
 
     if env.EXPERIENCE_REPLAY_ACTIVATED:
-        if (self.episode % 5) == 0:  # every 5 rounds
+        if (self.episode % 5) == 0:
             sample_size = self.batch_size if self.batch_size <= len(self.transitions) else len(self.transitions)
-            # current_batch = np.random.choice(self.transitions, sample_size, p=reward_p)
-            # current_batch = np.random.choice(self.transitions, sample_size)
-            current_batch = self.transitions.copy()
+            current_batch = np.random.choice(self.transitions, sample_size, p=reward_p)
             self.logger.info(f"Transition Count: {len(self.transitions)}, Batch Count {sample_size}")
             self.batch_size += self.batch_increment_size
             np.random.shuffle(current_batch)
@@ -254,8 +260,14 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
         with open(env.REWARDS_NAME, 'wb') as file:
             pickle.dump(self.rewards, file)
 
+        with open(env.REWARDS_ACC_NAME, 'wb') as file:
+            pickle.dump(self.rewards_acc, file)
+
         with open(env.WEIGHTS_NAME, 'wb') as file:
             pickle.dump(self.weights1_stats, file)
+
+        with open(env.ALL_COINS_COLLECTED, 'wb') as file:
+            pickle.dump(self.all_coins_collected, file)
 
 
 def reward_from_events(self, events: List[str]) -> int:

@@ -31,8 +31,6 @@ def setup(self):
     if self.train or not os.path.isfile(env.MODEL_NAME):
         self.logger.info(f"Setting up model from scratch.")
         weights = np.random.rand(NUMBER_OF_FEATURES)
-        guess = [1, 9, 20, 30, 32, 40, 35, 7, 40, 10, 3, 42, -100]
-        self.model = guess
         self.model = weights / weights.sum()
 
     else:
